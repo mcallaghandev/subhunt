@@ -1,0 +1,9 @@
+[package]
+name = "subhunt-application"
+description = "Use cases (running a game server, keeping a client's sonar picture) and the ports they need."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+subhunt-domain.workspace = true

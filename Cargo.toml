@@ -1,0 +1,36 @@
+# This is a Cargo *workspace*: several crates (Rust packages) that are built
+# together and share one `target/` folder and one `Cargo.lock`.
+#
+# Each crate is one layer of the hexagonal architecture. Cargo enforces the
+# dependency rule for us: a crate can only use crates it lists as dependencies,
+# so `domain` physically cannot reach Bevy or the network.
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+
+[workspace.dependencies]
+# Our own crates (inner layers first).
+subhunt-domain = { path = "crates/domain" }
+subhunt-application = { path = "crates/application" }
+subhunt-protocol = { path = "crates/protocol" }
+subhunt-net-tcp = { path = "crates/net-tcp" }
+
+# Third-party crates.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# "2d" + "ui" gives us rendering, gizmos (debug-style line drawing), text and
+# input. We skip "audio" and "3d" to keep compile times down.
+bevy = { version = "0.20.1", default-features = false, features = ["2d", "ui"] }
+
+# Bevy is slow when built without optimisations. These settings optimise all
+# dependencies fully while keeping our own code quick to recompile.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

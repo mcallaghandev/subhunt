@@ -1,0 +1,12 @@
+[package]
+name = "subhunt-client"
+description = "Bevy client: keyboard in, sonar scope out."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+subhunt-domain.workspace = true
+subhunt-application.workspace = true
+subhunt-net-tcp.workspace = true
+bevy.workspace = true

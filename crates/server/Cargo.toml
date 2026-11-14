@@ -1,0 +1,11 @@
+[package]
+name = "subhunt-server"
+description = "Headless dedicated server. Note: no Bevy here, the game rules don't need an engine."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+subhunt-domain.workspace = true
+subhunt-application.workspace = true
+subhunt-net-tcp.workspace = true

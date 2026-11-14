@@ -1,0 +1,12 @@
+[package]
+name = "subhunt-protocol"
+description = "Wire format shared by client and server network adapters."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+subhunt-domain.workspace = true
+subhunt-application.workspace = true
+serde.workspace = true
+serde_json.workspace = true

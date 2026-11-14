@@ -1,0 +1,9 @@
+[package]
+name = "subhunt-domain"
+description = "The rules of SubHunt. Pure Rust: no engine, no network, no serialisation."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+# Deliberately empty: the domain depends on nothing.
+[dependencies]

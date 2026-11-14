@@ -1,0 +1,11 @@
+[package]
+name = "subhunt-net-tcp"
+description = "Network adapter: implements the application's transport ports over TCP."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+subhunt-domain.workspace = true
+subhunt-application.workspace = true
+subhunt-protocol.workspace = true
