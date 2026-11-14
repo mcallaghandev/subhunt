@@ -19,10 +19,16 @@ subhunt-domain = { path = "crates/domain" }
 subhunt-application = { path = "crates/application" }
 subhunt-protocol = { path = "crates/protocol" }
 subhunt-net-tcp = { path = "crates/net-tcp" }
+subhunt-net-ws = { path = "crates/net-ws" }
+subhunt-net-browser = { path = "crates/net-browser" }
 
 # Third-party crates.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tungstenite = "0.30"
+# Browser bindings, used only by the WebAssembly build of the client.
+wasm-bindgen = "0.2.130"
+web-sys = { version = "0.3", features = ["WebSocket", "MessageEvent", "CloseEvent", "Event", "Window", "Location"] }
 # "2d" + "ui" gives us rendering, gizmos (debug-style line drawing), text and
 # input. We skip "audio" and "3d" to keep compile times down.
 bevy = { version = "0.20.1", default-features = false, features = ["2d", "ui"] }
@@ -34,3 +40,13 @@ opt-level = 1
 
 [profile.dev.package."*"]
 opt-level = 3
+
+# Used by scripts/build-web.sh. Browsers have to download the whole game, so
+# optimise for size, remove debug info and let the linker drop unused code.
+[profile.web]
+inherits = "release"
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"
+panic = "abort"

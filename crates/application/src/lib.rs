@@ -13,11 +13,13 @@
 //! what "ports and adapters" means.
 
 mod client;
+mod combined;
 mod messages;
 mod ports;
 mod server;
 
 pub use client::{ClientSession, ConnectionStatus, Echo, TimedNotice};
+pub use combined::{CombinedTransport, PlayerIdSource};
 pub use messages::{Notice, ServerMessage};
 pub use ports::{ClientInbound, ClientTransport, InboundEvent, ServerTransport};
 pub use server::{GameServer, TickReport};

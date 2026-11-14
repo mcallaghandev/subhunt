@@ -6,19 +6,21 @@ use subhunt_application::{ClientTransport, ConnectionStatus};
 use crate::helm::Helm;
 use crate::session::Session;
 
-/// Holds whichever transport `main` chose.
+/// Holds whichever transport `connect.rs` chose.
 ///
 /// Rust note: `Box<dyn ClientTransport>` is a *trait object*: "some type that
 /// implements `ClientTransport`, decided at runtime". Compare with the server,
-/// which uses a generic (`GameServer<T>`) decided at compile time. Both are
-/// valid; trait objects are handy when storing things in Bevy resources.
-#[derive(Resource)]
+/// which uses a generic (`GameServer<T>`) decided at compile time.
+///
+/// Bevy note: this is a *non-send* resource (added with `insert_non_send`,
+/// read with `NonSendMut`). The browser's WebSocket can't be shared between
+/// threads, so Bevy keeps this resource on the main thread for us.
 pub struct Network {
-    transport: Box<dyn ClientTransport + Send + Sync>,
+    transport: Box<dyn ClientTransport>,
 }
 
 impl Network {
-    pub fn new(transport: impl ClientTransport + Send + Sync + 'static) -> Self {
+    pub fn new(transport: impl ClientTransport + 'static) -> Self {
         Self { transport: Box::new(transport) }
     }
 }
@@ -31,7 +33,7 @@ impl Plugin for NetworkPlugin {
     }
 }
 
-fn receive_from_server(mut network: ResMut<Network>, mut session: ResMut<Session>) {
+fn receive_from_server(mut network: NonSendMut<Network>, mut session: ResMut<Session>) {
     for inbound in network.transport.poll() {
         session.0.handle(inbound);
     }
@@ -41,7 +43,7 @@ fn advance_session(time: Res<Time>, mut session: ResMut<Session>) {
     session.0.advance(time.delta_secs());
 }
 
-fn send_orders(mut network: ResMut<Network>, mut helm: ResMut<Helm>, session: Res<Session>) {
+fn send_orders(mut network: NonSendMut<Network>, mut helm: ResMut<Helm>, session: Res<Session>) {
     if session.0.status() == ConnectionStatus::Playing {
         let orders = helm.take_orders();
         network.transport.send_orders(&orders);

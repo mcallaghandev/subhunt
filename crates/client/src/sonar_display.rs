@@ -6,6 +6,7 @@
 //!
 //! The scope is "north up" with your submarine always in the centre.
 
+use bevy::camera::ScalingMode;
 use bevy::prelude::*;
 use subhunt_domain::{Contact, ContactKind, Vec2 as WorldVec2};
 
@@ -30,8 +31,18 @@ impl Plugin for SonarDisplayPlugin {
     }
 }
 
+/// The scope plus a margin, in world units. The camera zooms so at least this
+/// much is always visible, however big or small the window (or browser tab) is.
+const VIEW_SIZE: f32 = 2.0 * SCOPE_RADIUS + 140.0;
+
 fn spawn_camera(mut commands: Commands) {
-    commands.spawn(Camera2d);
+    commands.spawn((
+        Camera2d,
+        Projection::Orthographic(OrthographicProjection {
+            scaling_mode: ScalingMode::AutoMin { min_width: VIEW_SIZE, min_height: VIEW_SIZE },
+            ..OrthographicProjection::default_2d()
+        }),
+    ));
 }
 
 fn draw_sonar(mut gizmos: Gizmos, session: Res<Session>, time: Res<Time>) {

@@ -1,0 +1,12 @@
+[package]
+name = "subhunt-net-ws"
+description = "Network adapter: implements the server transport port over WebSockets, and serves the web client's files."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+subhunt-domain.workspace = true
+subhunt-application.workspace = true
+subhunt-protocol.workspace = true
+tungstenite.workspace = true

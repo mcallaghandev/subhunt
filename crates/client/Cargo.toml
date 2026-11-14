@@ -8,5 +8,12 @@ rust-version.workspace = true
 [dependencies]
 subhunt-domain.workspace = true
 subhunt-application.workspace = true
-subhunt-net-tcp.workspace = true
 bevy.workspace = true
+
+# Rust note: target-specific dependencies. The desktop build talks TCP; the
+# WebAssembly build (which runs in a browser) talks WebSockets.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+subhunt-net-tcp.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+subhunt-net-browser.workspace = true

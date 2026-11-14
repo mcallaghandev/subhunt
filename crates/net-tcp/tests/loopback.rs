@@ -5,7 +5,9 @@
 
 use std::time::{Duration, Instant};
 
-use subhunt_application::{ClientInbound, ClientTransport, InboundEvent, ServerMessage, ServerTransport};
+use subhunt_application::{
+    ClientInbound, ClientTransport, InboundEvent, PlayerIdSource, ServerMessage, ServerTransport,
+};
 use subhunt_domain::{HelmOrders, PlayerId};
 use subhunt_net_tcp::{TcpClientTransport, TcpServerTransport};
 
@@ -23,7 +25,7 @@ fn wait_for<T>(mut found: impl FnMut() -> Option<T>) -> T {
 
 #[test]
 fn client_and_server_exchange_messages() {
-    let mut server = TcpServerTransport::bind("127.0.0.1:0").unwrap();
+    let mut server = TcpServerTransport::bind("127.0.0.1:0", PlayerIdSource::new()).unwrap();
     let mut client = TcpClientTransport::connect(server.local_addr()).unwrap();
 
     let id = wait_for(|| {

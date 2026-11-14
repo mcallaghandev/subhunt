@@ -11,8 +11,8 @@ Hexagonal architecture (also called *ports and adapters*, and closely related to
 ```
             ┌───────────────────────────────────────────┐
             │  Adapters (outer ring)                    │
-            │   client (Bevy)   net-tcp   protocol      │
-            │   server (main loop)                      │
+            │   client (Bevy)   net-tcp   net-ws        │
+            │   server (main loop)  net-browser protocol│
             │      ┌─────────────────────────────┐      │
             │      │  Application                │      │
             │      │   GameServer, ClientSession │      │
@@ -35,9 +35,11 @@ Each ring is a separate **crate** (a Rust package) in a Cargo **workspace**. Tha
 | `subhunt-domain` | Domain | nothing | The rules. What a submarine is, how sonar works, what a torpedo hit means. |
 | `subhunt-application` | Application | domain | **Use cases** (`GameServer` runs a match, `ClientSession` tracks what a player knows) and **ports** (traits describing what the use cases need from outside). |
 | `subhunt-protocol` | Adapter (shared) | application, serde | How messages look as JSON. |
-| `subhunt-net-tcp` | Adapter | application, protocol | Implements the transport ports with TCP sockets. |
-| `subhunt-server` | Adapter + composition root | application, net-tcp | Picks TCP, builds a world, runs a 20 Hz loop. |
-| `subhunt-client` | Adapter + composition root | application, net-tcp, bevy | Keyboard in, sonar scope out. |
+| `subhunt-net-tcp` | Adapter | application, protocol | Implements both transport ports with TCP sockets (desktop). |
+| `subhunt-net-ws` | Adapter | application, protocol, tungstenite | Implements the server port with WebSockets, and serves the web page. |
+| `subhunt-net-browser` | Adapter | application, protocol, web-sys | Implements the client port with the browser's WebSocket (WebAssembly only). |
+| `subhunt-server` | Adapter + composition root | application, net-tcp, net-ws | Opens TCP and WebSocket transports, merges them, builds a world, runs a 20 Hz loop. |
+| `subhunt-client` | Adapter + composition root | application, bevy, net-tcp *or* net-browser | Keyboard in, sonar scope out. |
 
 ### Ports and adapters
 
@@ -65,7 +67,22 @@ impl ServerTransport for TcpServerTransport { ... }
 impl ServerTransport for FakeTransport { ... }
 ```
 
-`GameServer` can't tell the difference. That's why the server's tests run in milliseconds with no sockets, and why switching from TCP to UDP later means writing one new crate and changing one line in `server/src/main.rs`.
+`GameServer` can't tell the difference. That's why the server's tests run in milliseconds with no sockets.
+
+### Case study: adding the web version
+
+Making the game playable in a browser is a good example of the architecture paying off. Browsers can't open TCP sockets, so we needed WebSockets. Here's everything that changed:
+
+- **Two new adapter crates.** `net-ws` implements `ServerTransport` with WebSockets, and `net-browser` implements `ClientTransport` with the browser's WebSocket API.
+- **One small application addition.** `CombinedTransport` merges two transports into one, so TCP and browser players share a match. It's also just a `ServerTransport`. `PlayerIdSource` makes sure the two transports never hand out the same player id.
+- **Composition roots.** `server/src/main.rs` now opens both transports. `client/src/connect.rs` picks TCP on desktop and WebSockets in the browser, using `#[cfg(target_arch = "wasm32")]`.
+
+The domain, `GameServer`, `ClientSession`, and the drawing code didn't change at all.
+
+The client is compiled to **WebAssembly** (`wasm32-unknown-unknown`), a compact binary format browsers can run. `wasm-bindgen` generates the JavaScript glue that loads it. Two Rust points come up here:
+
+- **No threads in the browser.** The TCP adapter's background reader threads won't work there. The browser adapter is event-driven instead: the browser calls our closures when messages arrive, and they push into a queue the game drains each frame.
+- **Non-`Send` types.** The browser's `WebSocket` can't move between threads, so the client stores `Network` as a Bevy *non-send* resource (`insert_non_send` / `NonSendMut`).
 
 ## 2. Why the players can't see each other (and can't cheat)
 
@@ -163,12 +180,14 @@ Ideas roughly in order of difficulty. Each tells you which layer to touch, which
 5. **Islands and terrain.** Add obstacles that block movement and sonar. *(Domain for the rules; the client draws the coastline.)*
 6. **Decoys.** A noisemaker that looks like a submarine on passive sonar. *(Domain plus a new key in `helm.rs`.)*
 7. **Smoother movement.** Interpolate your own ship between server pictures (client-side prediction). *(Client and `ClientSession`.)*
-8. **UDP networking.** Write a `net-renet` or `net-lightyear` crate implementing the same two ports, then change the composition roots to use it. Nothing else changes. That's the architecture working.
+8. **UDP networking.** Write a `net-renet` or `net-lightyear` crate implementing the same two ports, then change the composition roots to use it, just as the web version did with WebSockets.
 9. **Lobby and match rounds.** A new use case in the application layer that wraps `GameServer`.
 
 ## 7. Known limitations (deliberate, to keep things simple)
 
-- **TCP and JSON.** Easy to read and debug, but not ideal for games over the internet. See item 8 above.
+- **TCP, WebSockets and JSON.** Easy to read and debug, but not ideal for games over the internet. See item 8 above.
+- **Polling WebSocket threads.** Each browser connection's thread wakes every 5 ms to check for outgoing messages. That's simple, but uses a little CPU per player.
+- **Plain HTTP only.** To host the web version publicly over HTTPS you'd put it behind a reverse proxy such as Caddy or nginx. The client already switches to `wss://` on HTTPS pages.
 - **No client-side prediction.** Your ship moves when the server says so, so you'll feel any latency.
 - **No reconnection.** If the connection drops, restart the client.
-- **Thread per connection** on the server. Fine for a handful of players, not for hundreds.
+- **Thread per connection** on the server (for both TCP and WebSockets). Fine for a handful of players, not for hundreds.

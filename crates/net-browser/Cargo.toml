@@ -1,0 +1,13 @@
+[package]
+name = "subhunt-net-browser"
+description = "Network adapter: implements the client transport port with the browser's WebSocket API (WebAssembly only)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+subhunt-application.workspace = true
+subhunt-domain.workspace = true
+subhunt-protocol.workspace = true
+wasm-bindgen.workspace = true
+web-sys.workspace = true

@@ -40,6 +40,40 @@ cargo run -p subhunt-client -- 192.168.1.20:7777
 
 The first build takes a few minutes because it compiles Bevy. Later builds are quick.
 
+### Playing in a web browser
+
+The server also hosts a web version of the game, and browser players join the same match as desktop players.
+
+One-time setup:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.130   # must match the version in Cargo.lock
+```
+
+Build the web client (re-run this whenever you change client code), then start the server:
+
+```sh
+./scripts/build-web.sh          # on Windows, run it from Git Bash
+cargo run -p subhunt-server
+```
+
+Open **http://localhost:8080** and click the scope so it receives the keyboard. Anyone on your network can join at `http://<your-ip>:8080`.
+
+The page downloads about 7 MB (31 MB uncompressed) and needs a browser with WebGL2, which every current browser supports.
+
+The server listens on two ports, and both can be changed:
+
+| Option | Default | Used by |
+| --- | --- | --- |
+| `--tcp` | `0.0.0.0:7777` | Desktop clients |
+| `--web` | `0.0.0.0:8080` | Browsers (web page and WebSocket) |
+| `--site` | `web` | Folder the web page is served from |
+
+```sh
+cargo run -p subhunt-server -- --web 0.0.0.0:3000
+```
+
 ### Controls
 
 | Key | Action |
@@ -74,9 +108,15 @@ crates/
   domain/        Game rules: submarines, sonar, torpedoes. No dependencies at all.
   application/   Use cases (GameServer, ClientSession) and ports (transport traits).
   protocol/      Wire format: JSON messages shared by both network adapters.
-  net-tcp/       Network adapter: implements the ports over TCP.
+  net-tcp/       Network adapter: the ports over TCP (desktop clients).
+  net-ws/        Network adapter: server side over WebSockets, and serves the web page.
+  net-browser/   Network adapter: client side using the browser's WebSocket (WebAssembly only).
   server/        Headless server binary (no Bevy needed).
-  client/        Bevy client binary: input, sonar display, HUD.
+  client/        Bevy client binary: input, sonar display, HUD. Builds for desktop and web.
+scripts/
+  build-web.sh   Builds the browser version into web/pkg.
+web/
+  index.html     The web page that hosts the game.
 docs/
   ARCHITECTURE.md   How it fits together, and a Rust primer for this codebase.
 ```

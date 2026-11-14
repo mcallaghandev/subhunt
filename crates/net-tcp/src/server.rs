@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use subhunt_application::{InboundEvent, ServerMessage, ServerTransport};
+use subhunt_application::{InboundEvent, PlayerIdSource, ServerMessage, ServerTransport};
 use subhunt_domain::PlayerId;
 use subhunt_protocol::{ClientToServer, ServerToClient, decode_line, encode_line};
 
@@ -28,7 +28,8 @@ pub struct TcpServerTransport {
 
 impl TcpServerTransport {
     /// Starts listening. Use port 0 to let the OS pick a free port (handy in tests).
-    pub fn bind(addr: impl ToSocketAddrs) -> io::Result<Self> {
+    /// New players get ids from `ids`, which may be shared with other transports.
+    pub fn bind(addr: impl ToSocketAddrs, ids: PlayerIdSource) -> io::Result<Self> {
         let listener = TcpListener::bind(addr)?; // `?` returns the error to our caller
         let local_addr = listener.local_addr()?;
         let (sender, events) = mpsc::channel();
@@ -36,7 +37,7 @@ impl TcpServerTransport {
 
         let writers_for_thread = Arc::clone(&writers);
         // Rust note: `move` hands ownership of the captured variables to the new thread.
-        thread::spawn(move || accept_loop(listener, sender, writers_for_thread));
+        thread::spawn(move || accept_loop(listener, ids, sender, writers_for_thread));
 
         Ok(Self { events, writers, local_addr })
     }
@@ -63,8 +64,7 @@ impl ServerTransport for TcpServerTransport {
     }
 }
 
-fn accept_loop(listener: TcpListener, events: Sender<InboundEvent>, writers: Writers) {
-    let mut next_id = 1;
+fn accept_loop(listener: TcpListener, ids: PlayerIdSource, events: Sender<InboundEvent>, writers: Writers) {
     for stream in listener.incoming() {
         let stream = match stream {
             Ok(stream) => stream,
@@ -73,8 +73,7 @@ fn accept_loop(listener: TcpListener, events: Sender<InboundEvent>, writers: Wri
                 continue;
             }
         };
-        let id = PlayerId(next_id);
-        next_id += 1;
+        let id = ids.next_id();
 
         // Send small packets immediately instead of batching them (lower latency).
         let _ = stream.set_nodelay(true);

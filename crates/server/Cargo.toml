@@ -9,3 +9,4 @@ rust-version.workspace = true
 subhunt-domain.workspace = true
 subhunt-application.workspace = true
 subhunt-net-tcp.workspace = true
+subhunt-net-ws.workspace = true
