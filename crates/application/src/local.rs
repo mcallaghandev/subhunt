@@ -81,7 +81,7 @@ impl LocalMatch {
             transport.inbox.push(InboundEvent::PlayerConnected(computer.id));
         }
 
-        let banner = format!("PRACTICE vs {computer_count} computer subs");
+        let banner = format!("Practice vs {computer_count} bots");
         Self { server, human, computers, accumulator: 0.0, banner: Some(banner) }
     }
 
@@ -155,10 +155,7 @@ impl<P: ClientTransport> ClientTransport for PracticeFallback<P> {
                 // Never got through: play offline instead.
                 self.online = None;
                 let mut practice = LocalMatch::new(LocalMatch::practice_rules(), self.computer_count, self.seed);
-                let mut switched = vec![ClientInbound::Banner(format!(
-                    "No game server found. PRACTICE vs {} computer subs",
-                    self.computer_count
-                ))];
+                let mut switched = vec![ClientInbound::Banner("No server: practice".to_string())];
                 // Skip the practice match's own banner; ours says more.
                 switched.extend(practice.poll().into_iter().filter(|i| !matches!(i, ClientInbound::Banner(_))));
                 self.practice = Some(practice);
@@ -203,7 +200,7 @@ mod tests {
             }
         }
         assert_eq!(session.status(), ConnectionStatus::Playing);
-        assert_eq!(session.banner(), Some("PRACTICE vs 3 computer subs"));
+        assert_eq!(session.banner(), Some("Practice vs 3 bots"));
         assert!(session.picture().unwrap().own_ship.speed > 0.0);
         assert_eq!(game.server.world().player_ids().len(), 4);
     }
@@ -228,6 +225,6 @@ mod tests {
             }
         }
         assert_eq!(session.status(), ConnectionStatus::Playing);
-        assert!(session.banner().unwrap().starts_with("No game server found"));
+        assert_eq!(session.banner(), Some("No server: practice"));
     }
 }

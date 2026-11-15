@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <!-- Stop phones zooming on double-tap or pinch: every touch belongs to the game. -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#020805">
+  <meta name="theme-color" content="#161a1e">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>SubHunt</title>
   <style>
-    html, body { margin: 0; height: 100%; background: #020805; color: #4dff80; font-family: ui-monospace, monospace; }
+    html, body { margin: 0; height: 100%; background: #161a1e; color: #f2b634; font-family: ui-monospace, monospace; }
     /* No scrolling, pull-to-refresh, text selection or tap highlights. */
     html, body, #game, #subhunt {
       overflow: hidden; overscroll-behavior: none; touch-action: none;
@@ -25,7 +25,7 @@
 </head>
 <body>
   <div id="game"><canvas id="subhunt" tabindex="0"></canvas></div>
-  <div id="loading"><p>Loading SubHunt…<br><small>On a computer, click the scope and use the keyboard.<br>On a phone or tablet, touch the screen to show the controls.</small></p></div>
+  <div id="loading"><p>Loading SubHunt…<br><small>Drag the levers and press the buttons with your mouse or finger.<br>On a computer, the keyboard works too.</small></p></div>
   <script>
     // Where to find a multiplayer game server. Leave empty to use the server
     // that served this page, or practice mode if there isn't one (as on GitHub

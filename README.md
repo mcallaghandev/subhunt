@@ -2,7 +2,7 @@
 
 A 2D top-down multiplayer submarine game written in Rust with [Bevy](https://bevyengine.org/).
 
-![Two clients side by side: one running at full speed with a torpedo in the water, the other just after a sonar ping](docs/screenshot.png)
+![The SubHunt instrument panel: a round sonar screen on the left, with gauges, a throttle lever, fire and ping buttons, warning lamps and a rudder lever on the right](docs/screenshot.png)
 
 You can't see the other players. All you have is a sonar scope:
 
@@ -110,6 +110,17 @@ Use `wss://` (secure WebSockets), because GitHub Pages is served over HTTPS and 
 
 ### Controls
 
+You command the boat from an instrument panel. Everything on it works with a mouse, a finger, or both thumbs at once:
+
+| Control | What it does |
+| --- | --- |
+| **THROTTLE** lever | Drag up for ahead, down for astern. It stays where you leave it, and snaps to STOP near the middle. |
+| **RUDDER** lever | Drag left to turn to port, right to turn to starboard. It springs back to the centre when you let go. |
+| **FIRE** button | Launches a torpedo straight ahead. The lamp turns green when the next one is loaded. |
+| **PING** button | Active sonar ping. The lamp turns green when it's ready again. |
+
+The keyboard works too:
+
 | Key | Action |
 | --- | --- |
 | `W` / `S` (or arrow keys) | Throttle up / down (the lever stays where you leave it) |
@@ -118,16 +129,26 @@ Use `wss://` (secure WebSockets), because GitHub Pages is served over HTTPS and 
 | `SPACE` | Active sonar ping |
 | `F` / `Enter` | Fire torpedo |
 
-**On a phone or tablet**, touch the screen and on-screen buttons appear. Your left thumb steers (`< PORT`, `STBD >`) and fires. Your right thumb drives (`AHEAD`, `ASTERN`, `STOP`) and pings. You can hold a steering button and a throttle button at the same time. Turning your phone sideways gives the scope more room.
+On a phone held upright, the panel rearranges itself into a tall layout.
 
-### Reading the scope
+### Reading the panel
 
-- **White triangle** in the centre: you. The scope is north-up.
-- **Orange lines**: passive bearings to submarines. Brighter means clearer.
+**Sonar screen** (the big round one):
+- **White arrowhead** in the centre: you. The screen is north-up.
+- **Amber lines**: passive bearings to submarines. Brighter means clearer.
 - **Red lines**: passive bearings to enemy torpedoes. Turn and run!
 - **Green circles**: ping echoes (exact positions). They fade over six seconds.
 - **Yellow dots**: your own torpedoes.
-- **Red edge**: the boundary of the play area.
+- **Dark red edge**: the boundary of the play area.
+
+**Gauges:**
+- **SPEED ×10:** your speed. "6" means 60.
+- **Heading:** a compass. The plate underneath shows the exact bearing.
+- **NOISE:** how loud you are. In the orange zone you can be heard from a long way off.
+
+**Warning lamps:** PINGED flashes when someone's ping finds you. HEARD lights while your sonar can hear something. HIT means your torpedo sank someone. SUNK means you were sunk.
+
+**Message display:** the game mode on the top line, and the latest event below it.
 
 ## Running the tests
 
@@ -148,7 +169,7 @@ crates/
   net-ws/        Network adapter: server side over WebSockets, and serves the web page.
   net-browser/   Network adapter: client side using the browser's WebSocket (WebAssembly only).
   server/        Headless server binary (no Bevy needed).
-  client/        Bevy client binary: input, sonar display, HUD. Builds for desktop and web.
+  client/        Bevy client binary: the instrument panel. Builds for desktop and web.
 scripts/
   build-web.sh   Builds the browser version into web/pkg.
 .github/workflows/

@@ -115,7 +115,7 @@ The server also never trusts input: `HelmOrders::sanitised()` clamps every value
 
 Here's what happens when you press `SPACE` to ping.
 
-1. **Bevy input adapter**, `client/src/helm.rs`: `read_keyboard` sees `just_pressed(Space)` and sets `helm.ping_requested = true`. On a phone, `client/src/touch.rs` does the same when a finger lands on the PING button. Both input adapters write to the same `Helm`, and nothing after this step knows which one was used.
+1. **Bevy input adapter**, `client/src/helm.rs`: `read_keyboard` sees `just_pressed(Space)` and sets `helm.ping_requested = true`. Clicking or tapping the PING button on the panel (`client/src/panel/controls.rs`) does the same. Both write to the same `Helm`, and nothing after this step knows which one was used.
 2. **Client network system**, `client/src/network.rs`: 20 times a second, `send_orders` calls `helm.take_orders()`, which builds a `HelmOrders` and clears the latch, then calls `transport.send_orders(&orders)`.
 3. **TCP adapter**, `net-tcp/src/client.rs`: converts to the `ClientToServer` DTO, encodes one JSON line, and writes it to the socket:
    `{"Orders":{"throttle":0.5,"rudder":0.0,"fire_torpedo":false,"sonar_ping":true}}`
@@ -124,7 +124,7 @@ Here's what happens when you press `SPACE` to ping.
 6. **Domain**, `domain/src/world.rs`: `GameWorld::step` lets the sub consume the ping order (if its cooldown allows), finds everything in range, stores the echoes, and emits `GameEvent::PingDetected` for each target.
 7. **Use case** again: turns `PingDetected` into `Notice::Pinged` for the target, then sends every player their `SensorPicture`. Yours includes `Contact::Fix` echoes.
 8. **Client**: the reader thread decodes the picture. `receive_from_server` hands it to `ClientSession::handle`, which remembers the echoes so they can fade out.
-9. **Bevy output adapter**, `client/src/sonar_display.rs`: `draw_sonar` draws a green circle for each echo, with brightness from `echo.intensity()`.
+9. **Output adapter**, `client/src/panel/draw.rs`: the `sonar` function draws a green circle on the panel for each echo, brighter or dimmer depending on `echo.intensity()`.
 
 Steps 5–7 are pure Rust you can test without a network, and step 6 contains every game rule.
 
@@ -144,7 +144,13 @@ Bevy is built on **ECS** (Entity Component System):
 - **Schedules** decide when systems run. `Startup` runs once. `Update` runs every frame. `FixedUpdate` runs at a fixed rate (we set 20 Hz for sending orders).
 - **Plugins** bundle systems and resources. Each client module exposes one (`HelmPlugin`, `NetworkPlugin` and so on), and `main.rs` adds them.
 
-We draw everything with **gizmos** (`gizmos.circle_2d`, `gizmos.line_2d`). They're redrawn every frame from the session data, which is great for prototyping. Later you might replace them with sprites and shaders for a nicer look.
+We barely use Bevy for drawing. The instrument panel is a **software framebuffer**: `client/src/panel/canvas.rs` keeps the pixels in a plain `Vec<u8>` and draws lines, circles and text into it with classic algorithms (Bresenham lines, midpoint circles, a hand-made 3×5 pixel font). Every frame, `panel/draw.rs` repaints the panel from the session, and `panel_plugin.rs` hands the pixels to Bevy as a texture on a single sprite, scaled up with "nearest" sampling so each pixel stays a crisp square.
+
+That's how games were drawn in the 1980s, and it suits a learner well:
+
+- **It's ordinary Rust.** Loops, slices, integer maths and no GPU concepts.
+- **It's testable.** The panel tests draw whole panels and press buttons without opening a window.
+- **One layout table drives both drawing and input.** `panel/layout.rs` says where each instrument is, so what you see is exactly what you can press.
 
 Note that **the server doesn't use Bevy at all.** The game rules don't need an engine, so the server is a plain loop. That's the architecture paying off.
 

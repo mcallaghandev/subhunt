@@ -2,9 +2,11 @@
 //!
 //! The Bevy app. In hexagonal terms this crate is a bundle of *adapters*:
 //!
-//! * `helm` and `touch`: keyboard and touchscreen → `HelmOrders` (input adapters)
+//! * `helm`: keyboard → `HelmOrders` (an input adapter)
+//! * `panel` and `panel_plugin`: the instrument panel. It shows what the
+//!   session knows (output) and its levers and buttons, worked by mouse or
+//!   touch, are also helm controls (input)
 //! * `network` and `connect`: wire a transport to the `ClientSession` use case
-//! * `sonar_display` and `hud`: draw what the session knows (output adapters)
 //!
 //! plus this file, the *composition root*, which plugs them together.
 //!
@@ -15,7 +17,7 @@
 //!
 //! Bevy uses **ECS** (Entity Component System):
 //! * **Resources** are global singletons (`Session`, `Helm`, `Network`).
-//! * **Components** are data attached to entities (the HUD text node).
+//! * **Components** are data attached to entities (the panel's sprite).
 //! * **Systems** are ordinary functions. Their *parameters* say what they need
 //!   (`Res<Session>`, `ResMut<Helm>`, `Query<&mut Text>`), and Bevy calls them
 //!   every frame with those things filled in.
@@ -26,11 +28,10 @@
 
 mod connect;
 mod helm;
-mod hud;
 mod network;
+mod panel;
+mod panel_plugin;
 mod session;
-mod sonar_display;
-mod touch;
 
 use bevy::prelude::*;
 use subhunt_application::ClientSession;
@@ -50,24 +51,19 @@ fn main() -> AppExit {
 
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin { primary_window: Some(window()), ..default() }))
-        .insert_resource(ClearColor(Color::srgb(0.01, 0.03, 0.02)))
+        // The colour round the edges when the window isn't the panel's shape.
+        .insert_resource(ClearColor(Color::srgb_u8(22, 26, 30)))
         // `FixedUpdate` systems run at this rate regardless of frame rate.
         .insert_resource(Time::<Fixed>::from_hz(ORDERS_PER_SECOND))
         .insert_resource(session::Session(ClientSession::new()))
         .insert_non_send(network)
-        .add_plugins((
-            helm::HelmPlugin,
-            touch::TouchPlugin,
-            network::NetworkPlugin,
-            sonar_display::SonarDisplayPlugin,
-            hud::HudPlugin,
-        ))
+        .add_plugins((helm::HelmPlugin, network::NetworkPlugin, panel_plugin::PanelPlugin))
         .run()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 fn window() -> Window {
-    Window { title: "SubHunt".into(), resolution: bevy::window::WindowResolution::new(900, 900), ..default() }
+    Window { title: "SubHunt".into(), resolution: bevy::window::WindowResolution::new(960, 540), ..default() }
 }
 
 /// In a browser, draw into the page's `<canvas id="subhunt">` and resize with it.

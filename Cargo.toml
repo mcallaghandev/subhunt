@@ -30,9 +30,10 @@ tungstenite = "0.30"
 wasm-bindgen = "0.2.130"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ["WebSocket", "MessageEvent", "CloseEvent", "Event", "Window", "Location", "Url", "UrlSearchParams"] }
-# "2d" + "ui" gives us rendering, gizmos (debug-style line drawing), text and
-# input. We skip "audio" and "3d" to keep compile times down.
-bevy = { version = "0.20.1", default-features = false, features = ["2d", "ui"] }
+# "2d" gives us a window, input, sprites and textures, which is all the
+# instrument panel needs (it draws its own pixels). We skip "3d", "ui" and
+# "audio" to keep compile times and the web download down.
+bevy = { version = "0.20.1", default-features = false, features = ["2d"] }
 
 # Bevy is slow when built without optimisations. These settings optimise all
 # dependencies fully while keeping our own code quick to recompile.

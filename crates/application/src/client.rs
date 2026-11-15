@@ -123,7 +123,7 @@ impl ClientSession {
         self.player_id
     }
 
-    /// A permanent line of text for the player, such as "PRACTICE vs 3 computer subs".
+    /// A permanent line of text for the player, such as "Practice vs 3 bots".
     pub fn banner(&self) -> Option<&str> {
         self.banner.as_deref()
     }
