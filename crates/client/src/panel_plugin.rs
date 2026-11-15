@@ -75,7 +75,12 @@ fn blank_image(layout: &Layout) -> Image {
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::default(),
     );
-    image.sampler = ImageSampler::nearest(); // big square pixels, no blurring
+    // Use the app-wide default sampler (set to "nearest" in main.rs, so pixels
+    // stay crisp squares). Don't give this image its own sampler: Bevy creates
+    // a fresh GPU sampler every time an image with a custom one changes, and
+    // this image changes every frame. That many samplers crashed Chrome on an
+    // Android phone (most phone drivers allow only a few thousand).
+    image.sampler = ImageSampler::Default;
     image
 }
 

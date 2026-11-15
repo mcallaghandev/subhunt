@@ -50,7 +50,12 @@ fn main() -> AppExit {
     };
 
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin { primary_window: Some(window()), ..default() }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin { primary_window: Some(window()), ..default() })
+                // Scale textures up with "nearest" sampling: big square pixels, no blur.
+                .set(ImagePlugin::default_nearest()),
+        )
         // The colour round the edges when the window isn't the panel's shape.
         .insert_resource(ClearColor(Color::srgb_u8(22, 26, 30)))
         // `FixedUpdate` systems run at this rate regardless of frame rate.
