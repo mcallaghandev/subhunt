@@ -9,5 +9,6 @@ rust-version.workspace = true
 subhunt-application.workspace = true
 subhunt-domain.workspace = true
 subhunt-protocol.workspace = true
+js-sys.workspace = true
 wasm-bindgen.workspace = true
 web-sys.workspace = true

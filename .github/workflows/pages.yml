@@ -1,0 +1,63 @@
+# Builds the browser version of SubHunt and publishes it to GitHub Pages.
+#
+# One-time setup: in the repository on GitHub, open Settings → Pages and set
+# "Source" to "GitHub Actions". After that, every push to main republishes it at
+# https://<your-user>.github.io/subhunt/
+name: Deploy web client to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # also allows running it by hand from the Actions tab
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deployment at a time; a newer push replaces an older one in progress.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust with the WebAssembly target
+        run: |
+          rustup update stable
+          rustup default stable
+          rustup target add wasm32-unknown-unknown
+
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-bindgen (version must match Cargo.lock)
+        run: |
+          VERSION=$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/^version = "\(.*\)"/\1/p')
+          cargo install wasm-bindgen-cli --version "$VERSION" --locked
+
+      - name: Build the web client
+        run: ./scripts/build-web.sh
+
+      # GitHub Pages compresses files itself, so the .gz copies aren't needed.
+      - name: Remove pre-compressed copies
+        run: rm -f web/pkg/*.gz
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

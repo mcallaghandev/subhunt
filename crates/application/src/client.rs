@@ -53,6 +53,7 @@ pub struct ClientSession {
     picture: Option<SensorPicture>,
     echoes: Vec<Echo>,
     notices: VecDeque<TimedNotice>,
+    banner: Option<String>,
 }
 
 impl Default for ClientSession {
@@ -71,6 +72,7 @@ impl ClientSession {
             picture: None,
             echoes: Vec::new(),
             notices: VecDeque::new(),
+            banner: None,
         }
     }
 
@@ -97,6 +99,7 @@ impl ClientSession {
                 self.notices.truncate(MAX_NOTICES);
             }
             ClientInbound::ConnectionLost => self.status = ConnectionStatus::Lost,
+            ClientInbound::Banner(text) => self.banner = Some(text),
         }
     }
 
@@ -118,6 +121,11 @@ impl ClientSession {
 
     pub fn player_id(&self) -> Option<PlayerId> {
         self.player_id
+    }
+
+    /// A permanent line of text for the player, such as "PRACTICE vs 3 computer subs".
+    pub fn banner(&self) -> Option<&str> {
+        self.banner.as_deref()
     }
 
     pub fn world_half_extent(&self) -> f32 {

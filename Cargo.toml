@@ -28,7 +28,8 @@ serde_json = "1"
 tungstenite = "0.30"
 # Browser bindings, used only by the WebAssembly build of the client.
 wasm-bindgen = "0.2.130"
-web-sys = { version = "0.3", features = ["WebSocket", "MessageEvent", "CloseEvent", "Event", "Window", "Location"] }
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["WebSocket", "MessageEvent", "CloseEvent", "Event", "Window", "Location", "Url", "UrlSearchParams"] }
 # "2d" + "ui" gives us rendering, gizmos (debug-style line drawing), text and
 # input. We skip "audio" and "3d" to keep compile times down.
 bevy = { version = "0.20.1", default-features = false, features = ["2d", "ui"] }

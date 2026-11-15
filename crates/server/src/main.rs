@@ -27,7 +27,10 @@ struct Settings {
 
 impl Settings {
     fn from_args() -> Result<Self, String> {
-        let mut settings = Settings { tcp: "0.0.0.0:7777".into(), web: "0.0.0.0:8080".into(), site: "web".into() };
+        // Hosting services usually say which port to use in the PORT variable.
+        let web_port = std::env::var("PORT").unwrap_or_else(|_| "8080".into());
+        let mut settings =
+            Settings { tcp: "0.0.0.0:7777".into(), web: format!("0.0.0.0:{web_port}"), site: "web".into() };
         let mut args = std::env::args().skip(1);
         // Rust note: `while let` keeps looping as long as the pattern matches.
         while let Some(flag) = args.next() {

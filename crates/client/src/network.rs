@@ -33,7 +33,9 @@ impl Plugin for NetworkPlugin {
     }
 }
 
-fn receive_from_server(mut network: NonSendMut<Network>, mut session: ResMut<Session>) {
+fn receive_from_server(time: Res<Time>, mut network: NonSendMut<Network>, mut session: ResMut<Session>) {
+    // Only a practice match (simulated on this machine) actually uses this.
+    network.transport.update(time.delta_secs());
     for inbound in network.transport.poll() {
         session.0.handle(inbound);
     }

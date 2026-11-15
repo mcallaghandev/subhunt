@@ -49,6 +49,36 @@ impl BrowserWsTransport {
         Some(format!("{scheme}://{}/ws", location.host().ok()?))
     }
 
+    /// Reads a setting for the game from the page, in priority order:
+    /// a URL query parameter (`?server=...`), then a global variable set by
+    /// the page's own script (`window.SUBHUNT_SERVER = "..."`).
+    /// Empty values count as "not set".
+    pub fn page_setting(query_name: &str, global_name: &str) -> Option<String> {
+        let window = web_sys::window()?;
+        let from_query = window
+            .location()
+            .href()
+            .ok()
+            .and_then(|href| web_sys::Url::new(&href).ok())
+            .and_then(|url| url.search_params().get(query_name));
+        let from_global =
+            || js_sys::Reflect::get(&window, &global_name.into()).ok().and_then(|value| value.as_string());
+        from_query.or_else(from_global).filter(|value| !value.trim().is_empty())
+    }
+
+    /// Whether the page's address has a query parameter, such as `?practice`.
+    pub fn page_has_flag(name: &str) -> bool {
+        web_sys::window()
+            .and_then(|window| window.location().href().ok())
+            .and_then(|href| web_sys::Url::new(&href).ok())
+            .is_some_and(|url| url.search_params().has(name))
+    }
+
+    /// A random seed from the browser (there's no system clock to use in WebAssembly).
+    pub fn random_seed() -> u64 {
+        (js_sys::Math::random() * u64::MAX as f64) as u64
+    }
+
     /// Starts connecting. The connection opens in the background; if it
     /// fails, `poll` reports `ConnectionLost`.
     pub fn connect(url: &str) -> Result<Self, String> {

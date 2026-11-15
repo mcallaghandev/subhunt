@@ -40,6 +40,12 @@ cargo run -p subhunt-client -- 192.168.1.20:7777
 
 The first build takes a few minutes because it compiles Bevy. Later builds are quick.
 
+No server, or no one to play with? Practice offline against three computer-controlled subs:
+
+```sh
+cargo run -p subhunt-client -- --practice
+```
+
 ### Playing in a web browser
 
 The server also hosts a web version of the game, and browser players join the same match as desktop players.
@@ -73,6 +79,34 @@ The server listens on two ports, and both can be changed:
 ```sh
 cargo run -p subhunt-server -- --web 0.0.0.0:3000
 ```
+
+## Publishing on GitHub Pages
+
+The repository includes a GitHub Action (`.github/workflows/pages.yml`) that builds the web version and publishes it to GitHub Pages on every push to `main`. The game then appears at `https://<your-user>.github.io/subhunt/`, alongside any other Pages sites you have.
+
+One-time setup: on GitHub, open the repository's **Settings → Pages** and set **Source** to **GitHub Actions**. To publish without pushing, use **Actions → Deploy web client to GitHub Pages → Run workflow**.
+
+GitHub Pages only hosts files; it can't run the game server. So the page decides what to do when it loads:
+
+1. `?practice` in the address always starts a **practice game** against computer subs.
+2. Otherwise it connects to a multiplayer server: the one named by `?server=...` in the address, or `window.SUBHUNT_SERVER` in `web/index.html`, or the server the page came from.
+3. If no server answers (always the case on Pages until you host one), it switches to **practice** and says so at the top of the screen.
+
+The practice game runs the real game server inside the browser, with computer captains that only see their own sonar, just like you.
+
+### Hosting a multiplayer server
+
+To make the Pages version multiplayer, run the game server on any hosting service that runs Docker containers and supports WebSockets. The repository includes:
+
+- a `Dockerfile` for the server (it listens on the `PORT` variable most hosts set), and
+- a `render.yaml` blueprint for [Render](https://render.com), which has a free tier at the time of writing. In the Render dashboard, choose **New → Blueprint** and pick this repository.
+
+Once it's running, point the page at it in either of these ways:
+
+- **Share a link:** `https://<your-user>.github.io/subhunt/?server=wss://<your-server-host>/ws`
+- **Make it the default:** set `window.SUBHUNT_SERVER = "wss://<your-server-host>/ws";` in `web/index.html` and push.
+
+Use `wss://` (secure WebSockets), because GitHub Pages is served over HTTPS and browsers block insecure connections from secure pages. Hosting services provide the HTTPS for you.
 
 ### Controls
 
@@ -115,6 +149,9 @@ crates/
   client/        Bevy client binary: input, sonar display, HUD. Builds for desktop and web.
 scripts/
   build-web.sh   Builds the browser version into web/pkg.
+.github/workflows/
+  pages.yml      Publishes the web version to GitHub Pages.
+Dockerfile       Container image for hosting the multiplayer server.
 web/
   index.html     The web page that hosts the game.
 docs/

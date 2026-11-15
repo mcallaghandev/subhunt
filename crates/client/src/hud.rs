@@ -63,6 +63,9 @@ fn status_report(session: &Session) -> String {
     // `write!` into a String works like `format!` but appends. It returns a
     // `Result` we can safely ignore, because writing to a String can't fail.
     let mut out = String::new();
+    if let Some(banner) = session.banner() {
+        let _ = writeln!(out, "{banner}");
+    }
     if let Some(id) = session.player_id() {
         let _ = writeln!(out, "{id}    SCORE {}", picture.score);
     }

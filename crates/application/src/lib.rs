@@ -12,14 +12,18 @@
 //! against a trait works with any type that implements it, which is exactly
 //! what "ports and adapters" means.
 
+mod bot;
 mod client;
 mod combined;
+mod local;
 mod messages;
 mod ports;
 mod server;
 
+pub use bot::ComputerCaptain;
 pub use client::{ClientSession, ConnectionStatus, Echo, TimedNotice};
 pub use combined::{CombinedTransport, PlayerIdSource};
+pub use local::{InMemoryTransport, LocalMatch, PracticeFallback};
 pub use messages::{Notice, ServerMessage};
 pub use ports::{ClientInbound, ClientTransport, InboundEvent, ServerTransport};
 pub use server::{GameServer, TickReport};

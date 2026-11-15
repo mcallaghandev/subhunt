@@ -84,6 +84,16 @@ The client is compiled to **WebAssembly** (`wasm32-unknown-unknown`), a compact 
 - **No threads in the browser.** The TCP adapter's background reader threads won't work there. The browser adapter is event-driven instead: the browser calls our closures when messages arrive, and they push into a queue the game drains each frame.
 - **Non-`Send` types.** The browser's `WebSocket` can't move between threads, so the client stores `Network` as a Bevy *non-send* resource (`insert_non_send` / `NonSendMut`).
 
+### Case study: practice mode
+
+GitHub Pages can't run a server, so the published page needed a way to play with no server at all. Again, nothing in the domain changed:
+
+- **`ComputerCaptain`** (`application/src/bot.rs`) decides `HelmOrders` from a `SensorPicture`, exactly what a human player gets. It can't cheat, because it never sees the world.
+- **`InMemoryTransport`** implements `ServerTransport` with plain queues, and **`LocalMatch`** runs a real `GameServer` on it, with computer captains in the other seats. `LocalMatch` implements `ClientTransport`, so to the Bevy client it looks like any other connection.
+- **`PracticeFallback`** wraps a network transport and swaps in a `LocalMatch` if the server never answers.
+
+The only change to a port was a default `update(dt)` method on `ClientTransport`. A match simulated on your own machine needs to be told that time has passed; network transports ignore it.
+
 ## 2. Why the players can't see each other (and can't cheat)
 
 This rule shapes the whole design, so it's worth understanding.
@@ -174,14 +184,15 @@ cargo doc --open --no-deps        # browse the docs generated from the /// comme
 Ideas roughly in order of difficulty. Each tells you which layer to touch, which is good practice for the architecture.
 
 1. **Tune the feel.** Every number is in `domain/src/rules.rs`. Try a smaller world or a longer ping cooldown. *(Domain only.)*
-2. **Player names.** Add a `Hello { name }` client message. *(Protocol, then application, then the domain stores names.)*
-3. **Depth.** Give submarines a depth. Deeper is quieter but slower, and torpedoes must match depth to hit. *(Mostly domain, plus the HUD.)*
-4. **Bearing uncertainty.** Make passive bearings wobble more for faint contacts. *(Domain: `sensor_picture`.)*
-5. **Islands and terrain.** Add obstacles that block movement and sonar. *(Domain for the rules; the client draws the coastline.)*
-6. **Decoys.** A noisemaker that looks like a submarine on passive sonar. *(Domain plus a new key in `helm.rs`.)*
-7. **Smoother movement.** Interpolate your own ship between server pictures (client-side prediction). *(Client and `ClientSession`.)*
-8. **UDP networking.** Write a `net-renet` or `net-lightyear` crate implementing the same two ports, then change the composition roots to use it, just as the web version did with WebSockets.
-9. **Lobby and match rounds.** A new use case in the application layer that wraps `GameServer`.
+2. **Smarter or dumber bots.** Give `ComputerCaptain` difficulty levels, or teach it to slow down and listen. *(Application: `bot.rs`.)*
+3. **Player names.** Add a `Hello { name }` client message. *(Protocol, then application, then the domain stores names.)*
+4. **Depth.** Give submarines a depth. Deeper is quieter but slower, and torpedoes must match depth to hit. *(Mostly domain, plus the HUD.)*
+5. **Bearing uncertainty.** Make passive bearings wobble more for faint contacts. *(Domain: `sensor_picture`.)*
+6. **Islands and terrain.** Add obstacles that block movement and sonar. *(Domain for the rules; the client draws the coastline.)*
+7. **Decoys.** A noisemaker that looks like a submarine on passive sonar. *(Domain plus a new key in `helm.rs`.)*
+8. **Smoother movement.** Interpolate your own ship between server pictures (client-side prediction). *(Client and `ClientSession`.)*
+9. **UDP networking.** Write a `net-renet` or `net-lightyear` crate implementing the same two ports, then change the composition roots to use it, just as the web version did with WebSockets.
+10. **Lobby and match rounds.** A new use case in the application layer that wraps `GameServer`.
 
 ## 7. Known limitations (deliberate, to keep things simple)
 

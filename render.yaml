@@ -1,0 +1,9 @@
+# Blueprint for hosting the game server on Render (https://render.com).
+# In the Render dashboard choose New → Blueprint and pick this repository.
+# Check Render's current pricing: free web services sleep when idle and take
+# a little while to wake up on the first connection.
+services:
+  - type: web
+    name: subhunt
+    runtime: docker
+    plan: free
