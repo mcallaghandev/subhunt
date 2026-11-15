@@ -36,6 +36,23 @@ struct Panel {
 #[derive(Component)]
 struct PanelSprite;
 
+/// Some phones' graphics drivers crash (losing the whole WebGL context) when
+/// a texture's rows aren't a multiple of 256 bytes. At 4 bytes per pixel
+/// that's 64 pixels, so the texture is padded out to a multiple of 64 wide
+/// and the sprite only shows the panel part of it.
+const ROW_ALIGNMENT_PIXELS: i32 = 64;
+/// Redrawing faster than this gains nothing and costs battery.
+const REDRAWS_PER_SECOND: f32 = 30.0;
+
+fn texture_width(layout: &Layout) -> i32 {
+    (layout.width + ROW_ALIGNMENT_PIXELS - 1) / ROW_ALIGNMENT_PIXELS * ROW_ALIGNMENT_PIXELS
+}
+
+/// The part of the (padded) texture that holds the panel.
+fn visible_part(layout: &Layout) -> Rect {
+    Rect::new(0.0, 0.0, layout.width as f32, layout.height as f32)
+}
+
 pub struct PanelPlugin;
 
 impl Plugin for PanelPlugin {
@@ -50,7 +67,7 @@ impl Plugin for PanelPlugin {
 }
 
 fn blank_image(layout: &Layout) -> Image {
-    let size = Extent3d { width: layout.width as u32, height: layout.height as u32, depth_or_array_layers: 1 };
+    let size = Extent3d { width: texture_width(layout) as u32, height: layout.height as u32, depth_or_array_layers: 1 };
     let mut image = Image::new_fill(
         size,
         TextureDimension::D2,
@@ -66,7 +83,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn(Camera2d);
     let layout = Layout::landscape();
     let image = images.add(blank_image(&layout));
-    commands.spawn((Sprite { image: image.clone(), ..default() }, PanelSprite));
+    commands.spawn((Sprite { image: image.clone(), rect: Some(visible_part(&layout)), ..default() }, PanelSprite));
     commands.insert_resource(Panel {
         canvas: Canvas::new(layout.width, layout.height),
         layout,
@@ -95,6 +112,7 @@ fn fit_to_window(
         panel.canvas = Canvas::new(layout.width, layout.height);
         panel.image = images.add(blank_image(&layout));
         sprite.image = panel.image.clone();
+        sprite.rect = Some(visible_part(&layout));
         panel.layout = layout;
     }
 
@@ -157,19 +175,61 @@ fn draw_panel(
     helm: Res<Helm>,
     time: Res<Time>,
     mut images: ResMut<Assets<Image>>,
+    mut last_drawn: Local<Option<f32>>,
 ) {
+    // Rust note: `Local<T>` is a value that belongs to this one system and is
+    // kept between frames, a bit like a `static` variable in a C function.
+    let now = time.elapsed_secs();
+    if last_drawn.is_some_and(|last| now - last < 1.0 / REDRAWS_PER_SECOND) {
+        return;
+    }
+    *last_drawn = Some(now);
+
     // Rust note: `&mut *panel` turns Bevy's `ResMut<Panel>` into a plain
     // `&mut Panel`, so we can borrow its fields separately below.
     let panel = &mut *panel;
-    let state = PanelState {
-        session: &session.0,
-        throttle: helm.throttle,
-        rudder: helm.rudder,
-        input: panel.input,
-        time: time.elapsed_secs(),
-    };
+    let state =
+        PanelState { session: &session.0, throttle: helm.throttle, rudder: helm.rudder, input: panel.input, time: now };
     draw::draw(&mut panel.canvas, &panel.layout, &state);
     if let Some(mut image) = images.get_mut(&panel.image) {
-        image.data = Some(panel.canvas.bytes().to_vec());
+        copy_into_padded_rows(panel.canvas.bytes(), &panel.layout, image.data.get_or_insert_with(Vec::new));
+    }
+}
+
+/// Copies the panel's pixels into the texture, row by row, leaving the
+/// padding at the end of each row alone.
+fn copy_into_padded_rows(pixels: &[u8], layout: &Layout, texture: &mut Vec<u8>) {
+    let row = layout.width as usize * 4;
+    let padded_row = texture_width(layout) as usize * 4;
+    texture.resize(padded_row * layout.height as usize, 255);
+    // Rust note: `chunks_exact` splits a slice into equal pieces, and `zip`
+    // walks two iterators side by side.
+    for (source, destination) in pixels.chunks_exact(row).zip(texture.chunks_exact_mut(padded_row)) {
+        destination[..row].copy_from_slice(source);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn texture_rows_are_a_multiple_of_256_bytes() {
+        for layout in [Layout::landscape(), Layout::portrait()] {
+            let row_bytes = texture_width(&layout) * 4;
+            assert_eq!(row_bytes % 256, 0, "{:?}", layout.orientation);
+            assert!(texture_width(&layout) >= layout.width);
+        }
+    }
+
+    #[test]
+    fn padding_keeps_each_row_in_place() {
+        let layout = Layout::portrait(); // 180 wide, padded to 192
+        let pixels: Vec<u8> = (0..layout.width * layout.height * 4).map(|i| (i % 251) as u8).collect();
+        let mut texture = Vec::new();
+        copy_into_padded_rows(&pixels, &layout, &mut texture);
+        let (row, padded) = (180 * 4, 192 * 4);
+        assert_eq!(texture.len(), padded * 340);
+        assert_eq!(&texture[padded * 7..padded * 7 + row], &pixels[row * 7..row * 8]);
     }
 }
