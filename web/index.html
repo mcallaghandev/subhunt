@@ -45,6 +45,17 @@
       // Bevy colours its log lines with CSS; leave those arguments out.
       reportProblem(args.filter(a => !String(a).startsWith("color:")).map(String).join(" "));
     };
+    // With `?debug` in the address, show the whole log (graphics chip, warnings...).
+    if (new URLSearchParams(location.search).has("debug")) {
+      for (const level of ["log", "info", "warn"]) {
+        const original = console[level];
+        console[level] = (...args) => {
+          original(...args);
+          reportProblem(level.toUpperCase() + ": " + args.filter(a => !String(a).startsWith("color:")).map(String).join(" "));
+        };
+      }
+      reportProblem("Debug log (" + navigator.userAgent + ")");
+    }
     window.addEventListener("error", e => reportProblem("Error: " + e.message));
     window.addEventListener("unhandledrejection", e => {
       const text = String(e.reason);
