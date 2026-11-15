@@ -115,7 +115,7 @@ The server also never trusts input: `HelmOrders::sanitised()` clamps every value
 
 Here's what happens when you press `SPACE` to ping.
 
-1. **Bevy input adapter**, `client/src/helm.rs`: `read_keyboard` sees `just_pressed(Space)` and sets `helm.ping_requested = true`.
+1. **Bevy input adapter**, `client/src/helm.rs`: `read_keyboard` sees `just_pressed(Space)` and sets `helm.ping_requested = true`. On a phone, `client/src/touch.rs` does the same when a finger lands on the PING button. Both input adapters write to the same `Helm`, and nothing after this step knows which one was used.
 2. **Client network system**, `client/src/network.rs`: 20 times a second, `send_orders` calls `helm.take_orders()`, which builds a `HelmOrders` and clears the latch, then calls `transport.send_orders(&orders)`.
 3. **TCP adapter**, `net-tcp/src/client.rs`: converts to the `ClientToServer` DTO, encodes one JSON line, and writes it to the socket:
    `{"Orders":{"throttle":0.5,"rudder":0.0,"fire_torpedo":false,"sonar_ping":true}}`

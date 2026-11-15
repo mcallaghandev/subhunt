@@ -118,6 +118,8 @@ Use `wss://` (secure WebSockets), because GitHub Pages is served over HTTPS and 
 | `SPACE` | Active sonar ping |
 | `F` / `Enter` | Fire torpedo |
 
+**On a phone or tablet**, touch the screen and on-screen buttons appear. Your left thumb steers (`< PORT`, `STBD >`) and fires. Your right thumb drives (`AHEAD`, `ASTERN`, `STOP`) and pings. You can hold a steering button and a throttle button at the same time. Turning your phone sideways gives the scope more room.
+
 ### Reading the scope
 
 - **White triangle** in the centre: you. The scope is north-up.

@@ -14,6 +14,10 @@ const HUD_GREEN: Color = Color::srgb(0.3, 1.0, 0.5);
 #[derive(Component)]
 struct StatusText;
 
+/// Marks the keyboard hints, which the touch controls hide on phones.
+#[derive(Component)]
+pub struct KeyboardHelp;
+
 pub struct HudPlugin;
 
 impl Plugin for HudPlugin {
@@ -36,6 +40,7 @@ fn spawn_hud(mut commands: Commands) {
         TextFont { font_size: FontSize::Px(14.0), ..default() },
         TextColor(HUD_GREEN.with_alpha(0.6)),
         Node { position_type: PositionType::Absolute, bottom: Val::Px(12.0), left: Val::Px(12.0), ..default() },
+        KeyboardHelp,
     ));
 }
 

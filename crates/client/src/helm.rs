@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use subhunt_domain::HelmOrders;
 
 /// How fast holding W/S moves the throttle lever (full range in ~3 seconds).
-const THROTTLE_LEVER_SPEED: f32 = 0.6;
+pub const THROTTLE_LEVER_SPEED: f32 = 0.6;
 
 /// The local helm: what the player is currently asking for.
 ///
@@ -39,7 +39,7 @@ impl Plugin for HelmPlugin {
     }
 }
 
-fn read_keyboard(keys: Res<ButtonInput<KeyCode>>, time: Res<Time>, mut helm: ResMut<Helm>) {
+pub fn read_keyboard(keys: Res<ButtonInput<KeyCode>>, time: Res<Time>, mut helm: ResMut<Helm>) {
     let dt = time.delta_secs();
     let held = |a: KeyCode, b: KeyCode| keys.pressed(a) || keys.pressed(b);
 

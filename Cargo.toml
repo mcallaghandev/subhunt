@@ -41,6 +41,9 @@ opt-level = 1
 
 [profile.dev.package."*"]
 opt-level = 3
+# Skip debug info for dependencies: it takes gigabytes of disk for Bevy and
+# you'll rarely step through Bevy's own code. Our crates keep full debug info.
+debug = false
 
 # Used by scripts/build-web.sh. Browsers have to download the whole game, so
 # optimise for size, remove debug info and let the linker drop unused code.

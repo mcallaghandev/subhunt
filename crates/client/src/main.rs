@@ -2,7 +2,7 @@
 //!
 //! The Bevy app. In hexagonal terms this crate is a bundle of *adapters*:
 //!
-//! * `helm`: keyboard → `HelmOrders` (an input adapter)
+//! * `helm` and `touch`: keyboard and touchscreen → `HelmOrders` (input adapters)
 //! * `network` and `connect`: wire a transport to the `ClientSession` use case
 //! * `sonar_display` and `hud`: draw what the session knows (output adapters)
 //!
@@ -30,6 +30,7 @@ mod hud;
 mod network;
 mod session;
 mod sonar_display;
+mod touch;
 
 use bevy::prelude::*;
 use subhunt_application::ClientSession;
@@ -54,7 +55,13 @@ fn main() -> AppExit {
         .insert_resource(Time::<Fixed>::from_hz(ORDERS_PER_SECOND))
         .insert_resource(session::Session(ClientSession::new()))
         .insert_non_send(network)
-        .add_plugins((helm::HelmPlugin, network::NetworkPlugin, sonar_display::SonarDisplayPlugin, hud::HudPlugin))
+        .add_plugins((
+            helm::HelmPlugin,
+            touch::TouchPlugin,
+            network::NetworkPlugin,
+            sonar_display::SonarDisplayPlugin,
+            hud::HudPlugin,
+        ))
         .run()
 }
 
