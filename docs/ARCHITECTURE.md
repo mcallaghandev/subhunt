@@ -202,7 +202,7 @@ Ideas roughly in order of difficulty. Each tells you which layer to touch, which
 
 ### Sound without sound files
 
-`client/src/sound/` builds every effect from scratch. `synth.rs` makes samples from sine waves, noise, envelopes, a low-pass filter and a resonator, then packs them into a WAV file in memory. `cues.rs` decides when to play them by comparing what the sonar knew a moment ago with what it knows now. For example, if the torpedo reload timer jumped up, we just fired. Both are plain Rust with tests. `audio_plugin.rs` is the small Bevy adapter that plays the results, and it changes the engine loop's volume and pitch as you speed up.
+`client/src/sound/` builds every effect from scratch. `synth.rs` makes samples from sine waves, noise, envelopes, and low-pass and band-pass filters, then packs them into a WAV file in memory. `cues.rs` decides when to play them by comparing what the sonar knew a moment ago with what it knows now. For example, if the torpedo reload timer jumped up, we just fired. Both are plain Rust with tests. `audio_plugin.rs` is the small Bevy adapter that plays the results, and it changes the engine loop's volume and pitch as you speed up.
 
 ### Lessons from making it work on phones
 

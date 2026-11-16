@@ -4,7 +4,7 @@
 //! bytes. Keeping them separate means we can change JSON to a binary format
 //! without touching this crate.
 
-use subhunt_domain::{PlayerId, SensorPicture};
+use subhunt_domain::{PlayerId, SensorPicture, Vec2};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ServerMessage {
@@ -22,9 +22,10 @@ pub enum Notice {
     Sunk {
         by: PlayerId,
     },
-    /// Your torpedo sank someone.
+    /// Your torpedo sank someone, at `position`.
     Kill {
         victim: PlayerId,
+        position: Vec2,
     },
     /// Someone's ping hit you: they know where you are.
     Pinged {

@@ -21,7 +21,7 @@ mod ports;
 mod server;
 
 pub use bot::ComputerCaptain;
-pub use client::{ClientSession, ConnectionStatus, Echo, TimedNotice};
+pub use client::{ClientSession, ConnectionStatus, Echo, Explosion, TimedNotice};
 pub use combined::{CombinedTransport, PlayerIdSource};
 pub use local::{InMemoryTransport, LocalMatch, PracticeFallback};
 pub use messages::{Notice, ServerMessage};

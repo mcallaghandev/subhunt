@@ -181,7 +181,7 @@ impl From<Notice> for NoticeDto {
     fn from(n: Notice) -> Self {
         match n {
             Notice::Sunk { by } => NoticeDto::Sunk { by: by.0 },
-            Notice::Kill { victim } => NoticeDto::Kill { victim: victim.0 },
+            Notice::Kill { victim, position } => NoticeDto::Kill { victim: victim.0, position: position.into() },
             Notice::Pinged { bearing } => NoticeDto::Pinged { bearing },
             Notice::PlayerJoined(p) => NoticeDto::PlayerJoined { player: p.0 },
             Notice::PlayerLeft(p) => NoticeDto::PlayerLeft { player: p.0 },
@@ -193,7 +193,9 @@ impl From<NoticeDto> for Notice {
     fn from(n: NoticeDto) -> Self {
         match n {
             NoticeDto::Sunk { by } => Notice::Sunk { by: PlayerId(by) },
-            NoticeDto::Kill { victim } => Notice::Kill { victim: PlayerId(victim) },
+            NoticeDto::Kill { victim, position } => {
+                Notice::Kill { victim: PlayerId(victim), position: position.into() }
+            }
             NoticeDto::Pinged { bearing } => Notice::Pinged { bearing },
             NoticeDto::PlayerJoined { player } => Notice::PlayerJoined(PlayerId(player)),
             NoticeDto::PlayerLeft { player } => Notice::PlayerLeft(PlayerId(player)),

@@ -139,6 +139,8 @@ On a phone held upright, the panel rearranges itself into a tall layout.
 - **Amber lines**: passive bearings to submarines. Brighter means clearer.
 - **Red lines**: passive bearings to enemy torpedoes. Turn and run!
 - **Green circles**: ping echoes (exact positions). They fade over six seconds.
+- **Yellow flash and spreading ring**: your torpedo hit something there.
+- **Red flash across the whole screen**: you've been hit.
 - **Yellow dots**: your own torpedoes.
 - **Dark red edge**: the boundary of the play area.
 
@@ -158,7 +160,7 @@ Every sound is synthesised by the game itself, so there are no audio files:
 - **Ping:** your active sonar. Each echo comes back as a softer blip, delayed by how far away the target is (sound travels about 1,500 metres a second in water), so distant contacts answer later and quieter.
 - **Torpedo launch:** a thump, a rush of water and bubbles.
 - **Engine:** a low rumble that gets louder and higher as you speed up.
-- **Hull:** the occasional creak and groan.
+- **Explosion:** a deep boom when your torpedo hits someone, and a louder one when you're the one hit.
 
 In a browser, sound starts after your first tap or key press, because browsers keep pages silent until then.
 

@@ -77,7 +77,7 @@ pub enum ContactDto {
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum NoticeDto {
     Sunk { by: u32 },
-    Kill { victim: u32 },
+    Kill { victim: u32, position: Vec2Dto },
     Pinged { bearing: f32 },
     PlayerJoined { player: u32 },
     PlayerLeft { player: u32 },

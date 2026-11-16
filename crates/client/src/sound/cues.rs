@@ -6,6 +6,7 @@
 //! for seconds) rather than one-off messages means a sound can't be missed if
 //! two updates arrive in the same frame.
 
+use subhunt_application::Notice;
 use subhunt_domain::{OwnShipStatus, Vec2};
 
 /// Speed of sound in sea water, in metres per second.
@@ -18,6 +19,10 @@ pub enum Cue {
     /// A ping echo, arriving after `delay` seconds, at `loudness` from 0 to 1.
     Echo {
         delay: f32,
+        loudness: f32,
+    },
+    /// A torpedo going off: ours hitting someone, or someone's hitting us.
+    Explosion {
         loudness: f32,
     },
 }
@@ -33,6 +38,17 @@ pub fn own_ship_cues(before: &OwnShipStatus, now: &OwnShipStatus) -> Vec<Cue> {
         cues.push(Cue::TorpedoLaunched);
     }
     cues
+}
+
+/// The sound (if any) that goes with a notice from the server.
+pub fn notice_cue(notice: &Notice) -> Option<Cue> {
+    match notice {
+        // Being hit is right on top of you: full volume.
+        Notice::Sunk { .. } => Some(Cue::Explosion { loudness: 1.0 }),
+        // Our torpedo hitting someone else is further away.
+        Notice::Kill { .. } => Some(Cue::Explosion { loudness: 0.75 }),
+        _ => None,
+    }
 }
 
 /// The sound of a ping bouncing back off something at `echo_position`.
@@ -86,6 +102,16 @@ mod tests {
         };
         assert!((near_delay - 0.2).abs() < 1e-5); // 300 m round trip at 1500 m/s
         assert!(far_delay > near_delay && far_loud < near_loud);
+    }
+
+    #[test]
+    fn hits_explode_and_being_hit_is_loudest() {
+        use subhunt_domain::PlayerId;
+        let sunk = notice_cue(&Notice::Sunk { by: PlayerId(2) });
+        let kill = notice_cue(&Notice::Kill { victim: PlayerId(2), position: Vec2::ZERO });
+        assert_eq!(sunk, Some(Cue::Explosion { loudness: 1.0 }));
+        assert!(matches!(kill, Some(Cue::Explosion { loudness }) if loudness < 1.0));
+        assert_eq!(notice_cue(&Notice::PlayerJoined(PlayerId(4))), None);
     }
 
     #[test]

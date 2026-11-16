@@ -4,7 +4,7 @@
 //! body (bezel, face or frame), the fixed markings (ticks, numbers, labels),
 //! then the moving part (needle, lever handle, lamp).
 
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use subhunt_application::{ClientSession, ConnectionStatus, Notice};
 use subhunt_domain::{Contact, ContactKind, GameRules, Vec2, compass_degrees};
@@ -287,6 +287,12 @@ fn sonar(canvas: &mut Canvas, dial: Dial, session: &ClientSession, time: f32) {
         canvas.text_centred(x + 1, y - 2, letter, PHOSPHOR_MID);
     }
 
+    // Just been hit: the screen flashes red.
+    let just_sunk = session.notices().any(|n| matches!(n.notice, Notice::Sunk { .. }) && n.age < 1.0);
+    if just_sunk && (time * 8.0) as i32 % 2 == 0 {
+        canvas.fill_circle(centre, r, RED_DIM);
+    }
+
     // The rotating sweep with a fading phosphor trail.
     let sweep = -time * 1.2;
     for (i, colour) in [PHOSPHOR, PHOSPHOR_MID, PHOSPHOR_MID, PHOSPHOR_DIM, PHOSPHOR_DIM].iter().enumerate() {
@@ -341,6 +347,43 @@ fn sonar(canvas: &mut Canvas, dial: Dial, session: &ClientSession, time: f32) {
         };
         canvas.circle(at, 2, colour);
         canvas.set(at.0, at.1, colour);
+    }
+
+    // Our torpedo hits: a flash, sparks, then a spreading ring that fades.
+    for explosion in session.explosions() {
+        let at = to_screen(explosion.position);
+        let progress = explosion.progress();
+        if progress < 0.12 {
+            let flash = 5 - (progress * 20.0) as i32;
+            for dy in -flash..=flash {
+                for dx in -flash..=flash {
+                    if dx * dx + dy * dy <= flash * flash && inside(at.0 + dx, at.1 + dy) {
+                        canvas.set(at.0 + dx, at.1 + dy, if dx * dx + dy * dy <= 4 { WHITE } else { YELLOW });
+                    }
+                }
+            }
+        }
+        let radius = 3.0 + 18.0 * progress.sqrt();
+        let ring = match progress {
+            p if p < 0.3 => YELLOW,
+            p if p < 0.6 => ORANGE,
+            _ => RED_DIM,
+        };
+        let steps = (TAU * radius) as i32 + 8;
+        for step in 0..steps {
+            let point = polar(at, step as f32 / steps as f32 * TAU, radius);
+            if inside(point.0, point.1) {
+                canvas.set(point.0, point.1, ring);
+            }
+        }
+        if progress < 0.5 {
+            for spark in 0..8 {
+                let angle = spark as f32 * TAU / 8.0 + 0.4;
+                let start = polar(at, angle, radius * 0.45);
+                let end = polar(at, angle, radius * 0.75);
+                canvas.line_where(start, end, ORANGE, inside);
+            }
+        }
     }
 
     for torpedo in &picture.own_torpedoes {
@@ -479,7 +522,7 @@ fn message_display(canvas: &mut Canvas, area: IRect, session: &ClientSession) {
 fn short_notice(notice: Notice) -> String {
     let text = match notice {
         Notice::Sunk { by } => format!("SUNK BY {by}"),
-        Notice::Kill { victim } => format!("HIT! {victim} DOWN"),
+        Notice::Kill { victim, .. } => format!("HIT! {victim} DOWN"),
         Notice::Pinged { bearing } => format!("PINGED FROM {:03.0}", compass_degrees(bearing)),
         Notice::PlayerJoined(id) => format!("{id} JOINED"),
         Notice::PlayerLeft(id) => format!("{id} LEFT"),
@@ -544,7 +587,7 @@ mod tests {
         let columns = ((narrowest - 5) / font::ADVANCE) as usize;
         for notice in [
             Notice::Sunk { by: PlayerId(12) },
-            Notice::Kill { victim: PlayerId(12) },
+            Notice::Kill { victim: PlayerId(12), position: Vec2::ZERO },
             Notice::Pinged { bearing: 1.0 },
             Notice::PlayerJoined(PlayerId(12)),
         ] {

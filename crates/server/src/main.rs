@@ -84,7 +84,7 @@ fn main() -> std::io::Result<()> {
         }
         for event in report.events {
             match event {
-                GameEvent::SubmarineSunk { victim, attacker } => println!("{attacker} sank {victim}"),
+                GameEvent::SubmarineSunk { victim, attacker, .. } => println!("{attacker} sank {victim}"),
                 GameEvent::SonarPing { by, .. } => println!("{by} pinged"),
                 _ => {}
             }

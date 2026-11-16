@@ -12,6 +12,8 @@ use crate::{ClientInbound, Notice, ServerMessage};
 
 /// How long a ping echo stays on the scope.
 const ECHO_LIFETIME: f32 = 6.0;
+/// How long an explosion shows on the scope.
+const EXPLOSION_LIFETIME: f32 = 3.0;
 /// How long a notice stays on screen.
 const NOTICE_LIFETIME: f32 = 8.0;
 const MAX_NOTICES: usize = 5;
@@ -38,6 +40,20 @@ impl Echo {
     }
 }
 
+/// A torpedo hit, shown on the scope where it happened.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Explosion {
+    pub position: Vec2,
+    pub age: f32,
+}
+
+impl Explosion {
+    /// 0.0 when it has just happened, rising to 1.0 as it fades out.
+    pub fn progress(&self) -> f32 {
+        (self.age / EXPLOSION_LIFETIME).clamp(0.0, 1.0)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct TimedNotice {
     pub notice: Notice,
@@ -56,6 +72,9 @@ pub struct ClientSession {
     banner: Option<String>,
     /// How many echoes have ever arrived, so a listener can spot new ones.
     echo_count: u64,
+    explosions: Vec<Explosion>,
+    /// How many notices have ever arrived, so a listener can spot new ones.
+    notice_count: u64,
 }
 
 impl Default for ClientSession {
@@ -76,6 +95,8 @@ impl ClientSession {
             notices: VecDeque::new(),
             banner: None,
             echo_count: 0,
+            explosions: Vec::new(),
+            notice_count: 0,
         }
     }
 
@@ -99,6 +120,10 @@ impl ClientSession {
                 self.picture = Some(picture);
             }
             ClientInbound::Message(ServerMessage::Notice(notice)) => {
+                if let Notice::Kill { position, .. } = notice {
+                    self.explosions.push(Explosion { position, age: 0.0 });
+                }
+                self.notice_count += 1;
                 self.notices.push_front(TimedNotice { notice, age: 0.0 });
                 self.notices.truncate(MAX_NOTICES);
             }
@@ -113,6 +138,10 @@ impl ClientSession {
             echo.age += dt;
         }
         self.echoes.retain(|e| e.age < ECHO_LIFETIME);
+        for explosion in &mut self.explosions {
+            explosion.age += dt;
+        }
+        self.explosions.retain(|e| e.age < EXPLOSION_LIFETIME);
         for notice in &mut self.notices {
             notice.age += dt;
         }
@@ -156,6 +185,17 @@ impl ClientSession {
     /// you last looked, the last 3 entries of [`echoes`](Self::echoes) are new.
     pub fn echo_count(&self) -> u64 {
         self.echo_count
+    }
+
+    /// Our torpedo hits that are still showing on the scope.
+    pub fn explosions(&self) -> &[Explosion] {
+        &self.explosions
+    }
+
+    /// The total number of notices ever received. If it has gone up by 2
+    /// since you last looked, the first 2 of [`notices`](Self::notices) are new.
+    pub fn notice_count(&self) -> u64 {
+        self.notice_count
     }
 
     /// Newest first.
@@ -216,6 +256,17 @@ mod tests {
 
         session.advance(ECHO_LIFETIME);
         assert!(session.echoes().is_empty());
+    }
+
+    #[test]
+    fn hits_show_an_explosion_that_fades() {
+        let mut session = ClientSession::new();
+        let hit = Notice::Kill { victim: PlayerId(2), position: Vec2::new(40.0, 10.0) };
+        session.handle(ClientInbound::Message(ServerMessage::Notice(hit)));
+        assert_eq!(session.notice_count(), 1);
+        assert_eq!(session.explosions()[0].position, Vec2::new(40.0, 10.0));
+        session.advance(EXPLOSION_LIFETIME + 0.1);
+        assert!(session.explosions().is_empty());
     }
 
     #[test]

@@ -87,10 +87,10 @@ impl<T: ServerTransport> GameServer<T> {
     /// Turns game events into personal notices for the players involved.
     fn notify(&mut self, event: &GameEvent) {
         match *event {
-            GameEvent::SubmarineSunk { victim, attacker } => {
+            GameEvent::SubmarineSunk { victim, attacker, position } => {
                 self.transport.send(victim, &ServerMessage::Notice(Notice::Sunk { by: attacker }));
                 if attacker != victim {
-                    self.transport.send(attacker, &ServerMessage::Notice(Notice::Kill { victim }));
+                    self.transport.send(attacker, &ServerMessage::Notice(Notice::Kill { victim, position }));
                 }
             }
             GameEvent::PingDetected { target, bearing_to_pinger } => {

@@ -1,6 +1,6 @@
 //! Bevy adapter for sound: plays the synthesised effects at the right moments.
 //!
-//! * One-shot sounds (ping, echo, torpedo, creak) are entities with an
+//! * One-shot sounds (ping, echo, torpedo, explosion) are entities with an
 //!   `AudioPlayer`. `PlaybackSettings::DESPAWN` removes each one when it ends.
 //! * The engine is a single looping sound whose volume and speed (pitch)
 //!   follow the submarine's speed.
@@ -18,16 +18,13 @@ use crate::session::Session;
 use crate::sound::cues::{self, Cue};
 use crate::sound::synth;
 
-/// How many different creaks to make. Varying them stops it sounding like a loop.
-const CREAK_VARIETIES: u64 = 4;
-
 #[derive(Resource)]
 struct Sounds {
     ping: Handle<AudioSource>,
     echo: Handle<AudioSource>,
     torpedo: Handle<AudioSource>,
     engine: Handle<AudioSource>,
-    creaks: Vec<Handle<AudioSource>>,
+    explosion: Handle<AudioSource>,
 }
 
 /// What the sound system remembers between frames.
@@ -36,21 +33,10 @@ struct Listening {
     /// Our boat as of the last frame, to spot reload timers jumping up.
     previous_ship: Option<OwnShipStatus>,
     echoes_heard: u64,
+    notices_heard: u64,
     /// Echoes still travelling back through the water: (when to play, loudness).
     incoming_echoes: Vec<(f32, f32)>,
-    next_creak: f32,
-    random: u64,
     muted: bool,
-}
-
-impl Listening {
-    /// A number in `[0, 1)`.
-    fn random(&mut self) -> f32 {
-        self.random ^= self.random << 13;
-        self.random ^= self.random >> 7;
-        self.random ^= self.random << 17;
-        (self.random >> 40) as f32 / (1u64 << 24) as f32
-    }
 }
 
 #[derive(Component)]
@@ -63,13 +49,12 @@ impl Plugin for AudioPlugin {
         app.insert_resource(Listening {
             previous_ship: None,
             echoes_heard: 0,
+            notices_heard: 0,
             incoming_echoes: Vec::new(),
-            next_creak: 6.0,
-            random: 0x5EED_CAFE,
             muted: false,
         })
         .add_systems(Startup, make_sounds)
-        .add_systems(Update, (toggle_mute, play_effects, play_creaks, drive_engine));
+        .add_systems(Update, (toggle_mute, play_effects, drive_engine));
     }
 }
 
@@ -84,7 +69,7 @@ fn make_sounds(mut commands: Commands, mut sources: ResMut<Assets<AudioSource>>)
         echo: sources.add(to_audio(&synth::echo_blip())),
         torpedo: sources.add(to_audio(&synth::torpedo_launch())),
         engine: sources.add(to_audio(&synth::engine_loop())),
-        creaks: (1..=CREAK_VARIETIES).map(|seed| sources.add(to_audio(&synth::hull_creak(seed)))).collect(),
+        explosion: sources.add(to_audio(&synth::explosion())),
     };
     commands.spawn((
         AudioPlayer(sounds.engine.clone()),
@@ -125,6 +110,11 @@ fn play_effects(
         cues.push(cues::echo_cue(ship.position, echo.position, session.display_range()));
     }
     listening.echoes_heard = session.echo_count();
+
+    // Notices that arrived since last frame are the newest, at the front.
+    let new_notices = (session.notice_count() - listening.notices_heard) as usize;
+    cues.extend(session.notices().take(new_notices).filter_map(|timed| cues::notice_cue(&timed.notice)));
+    listening.notices_heard = session.notice_count();
     listening.previous_ship = Some(ship);
 
     let muted = listening.muted;
@@ -132,6 +122,7 @@ fn play_effects(
         match cue {
             Cue::PingSent if !muted => play_once(&mut commands, &sounds.ping, 0.7),
             Cue::TorpedoLaunched if !muted => play_once(&mut commands, &sounds.torpedo, 0.8),
+            Cue::Explosion { loudness } if !muted => play_once(&mut commands, &sounds.explosion, loudness),
             Cue::Echo { delay, loudness } => listening.incoming_echoes.push((now + delay, loudness)),
             _ => {}
         }
@@ -150,26 +141,6 @@ fn play_effects(
         for loudness in arrived {
             play_once(&mut commands, &sounds.echo, 0.6 * loudness);
         }
-    }
-}
-
-/// Every so often the hull groans under the pressure of the sea.
-fn play_creaks(
-    mut commands: Commands,
-    session: Res<Session>,
-    sounds: Res<Sounds>,
-    time: Res<Time>,
-    mut listening: ResMut<Listening>,
-) {
-    let now = time.elapsed_secs();
-    if now < listening.next_creak {
-        return;
-    }
-    listening.next_creak = now + 8.0 + 14.0 * listening.random();
-    if session.0.status() == ConnectionStatus::Playing && !listening.muted {
-        let which = (listening.random() * sounds.creaks.len() as f32) as usize % sounds.creaks.len();
-        let loudness = 0.35 + 0.25 * listening.random();
-        play_once(&mut commands, &sounds.creaks[which], loudness);
     }
 }
 

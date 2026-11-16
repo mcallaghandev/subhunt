@@ -4,7 +4,7 @@
 //! * **noise** (random samples: rushing water, rumble),
 //! * **envelopes** (how loudness changes over time: a sharp start and slow fade),
 //! * **filters** (keep the low rumble, lose the hiss),
-//! * **resonators** (something that rings when struck: a creaking hull).
+//! * **resonators and band-pass filters** (keeping just one range of pitches).
 //!
 //! A sound is a `Vec<f32>` of samples between -1 and 1, played at
 //! [`SAMPLE_RATE`] samples per second.
@@ -249,46 +249,40 @@ pub fn engine_loop() -> Vec<f32> {
     samples
 }
 
-/// The hull groaning under pressure. "Stick-slip": the metal sticks, strains,
-/// then slips with a tiny jolt, over and over. Each jolt makes the hull ring
-/// at its natural frequencies, which drift as the stress changes.
-pub fn hull_creak(seed: u64) -> Vec<f32> {
-    let mut random = Random::new(seed);
-    let length = sample_count(random.range(1.0, 1.8));
-    // High enough for a phone speaker to play (they can't do much below 300 Hz).
-    let low_start = random.range(380.0, 480.0);
-    let low_end = low_start * random.range(0.6, 0.8);
-    let high = random.range(850.0, 1150.0);
-
-    // The jolts: clicks at irregular gaps, fastest in the middle of the creak.
-    let mut jolts = vec![0.0; length];
-    let mut next = 0;
-    while next < length {
-        let progress = next as f32 / length as f32;
-        jolts[next] = random.range(0.5, 1.0);
-        let gap = 0.035 - 0.022 * (progress * std::f32::consts::PI).sin();
-        next += sample_count(gap * random.range(0.7, 1.3)).max(1);
-    }
-
-    // Two resonators ring when jolted. A resonator feeds its own last two
-    // outputs back in, which makes it keep vibrating at one frequency.
+/// A torpedo exploding: a deep thump, a long rolling boom, and a crackle
+/// near the start that a phone speaker can play (it can't do the deep part).
+pub fn explosion() -> Vec<f32> {
+    let mut random = Random::new(23);
+    let length = sample_count(2.8);
     let mut samples = vec![0.0; length];
-    let mut low = (0.0, 0.0);
-    let mut high_ring = (0.0, 0.0);
-    for i in 0..length {
-        let progress = i as f32 / length as f32;
-        let pitch = low_start + (low_end - low_start) * progress;
-        let ring = |state: &mut (f32, f32), frequency: f32, input: f32| {
-            let r = 0.996;
-            let w = TAU * frequency / SAMPLE_RATE as f32;
-            let output = input + 2.0 * r * w.cos() * state.0 - r * r * state.1;
-            *state = (output, state.0);
-            output
-        };
-        let envelope = (progress * 8.0).min(1.0) * ((1.0 - progress) * 4.0).min(1.0);
-        samples[i] = envelope * (ring(&mut low, pitch, jolts[i]) + 0.6 * ring(&mut high_ring, high, jolts[i]));
+
+    // The thump: a low tone that drops in pitch as it dies.
+    let mut phase = 0.0;
+    for (i, sample) in samples.iter_mut().enumerate() {
+        let t = time_of(i);
+        phase += TAU * (35.0 + 45.0 * (-t * 6.0).exp()) / SAMPLE_RATE as f32;
+        *sample += 1.2 * phase.sin() * (-t * 3.0).exp();
     }
-    normalise(&mut samples, 0.8);
+
+    // The boom: noise through a low-pass filter that closes as it rolls away.
+    let mut smoothed = 0.0;
+    for (i, sample) in samples.iter_mut().enumerate() {
+        let t = time_of(i);
+        let openness = 0.12 * (-t * 2.0).exp() + 0.006;
+        smoothed += openness * (random.noise() - smoothed);
+        let envelope = (t / 0.01).min(1.0) * (-t * 1.4).exp();
+        *sample += 6.0 * smoothed * envelope;
+    }
+
+    // The crackle: a burst of mid-range noise, plus scattered pops.
+    let mut band = BandPass::new(900.0, 0.7);
+    for (i, sample) in samples.iter_mut().enumerate() {
+        let t = time_of(i);
+        let pop = if random.unit() < 0.004 * (-t * 3.0).exp() { random.range(2.0, 5.0) } else { 0.0 };
+        *sample += 0.9 * band.process(random.noise() + pop) * (-t * 3.5).exp();
+    }
+
+    normalise(&mut samples, 0.95);
     samples
 }
 
@@ -330,7 +324,7 @@ mod tests {
 
     #[test]
     fn sounds_are_in_range_and_not_silent() {
-        let sounds = [sonar_ping(), echo_blip(), torpedo_launch(), engine_loop(), hull_creak(1), hull_creak(2)];
+        let sounds = [sonar_ping(), echo_blip(), torpedo_launch(), engine_loop(), explosion()];
         for sound in &sounds {
             assert!(!sound.is_empty());
             assert!(sound.iter().all(|s| s.is_finite() && s.abs() <= 1.0));
@@ -353,11 +347,11 @@ mod tests {
         assert!((start - end).abs() < 0.01, "start {start} vs end {end}");
     }
 
-    /// Phone speakers can't play much below 300 Hz. Ambient sounds made only
-    /// of low frequencies were silent on a phone, so check each sound has a
-    /// good share of its energy where a phone can play it.
+    /// Phone speakers can't play much below 300 Hz. Sounds made only of low
+    /// frequencies were silent on a phone, so check the deep sounds have a
+    /// good share of their energy where a phone can play it.
     #[test]
-    fn ambient_sounds_are_audible_on_phone_speakers() {
+    fn deep_sounds_are_audible_on_phone_speakers() {
         fn share_above_300_hz(samples: &[f32]) -> f32 {
             // Two passes of a simple high-pass filter (a "leaky" difference).
             let cut = (-TAU * 300.0 / SAMPLE_RATE as f32).exp();
@@ -374,15 +368,17 @@ mod tests {
             };
             loudness(&high_pass(&high_pass(samples))) / loudness(samples)
         }
-        for (name, sound) in [("engine", engine_loop()), ("creak", hull_creak(1)), ("creak", hull_creak(3))] {
+        for (name, sound) in [("engine", engine_loop()), ("explosion", explosion())] {
             let share = share_above_300_hz(&sound);
-            assert!(share > 0.2, "{name}: only {:.0}% of its energy is above 300 Hz", share * 100.0);
+            assert!(share > 0.15, "{name}: only {:.0}% of its energy is above 300 Hz", share * 100.0);
         }
     }
 
     #[test]
-    fn creaks_vary() {
-        assert_ne!(hull_creak(1), hull_creak(2));
+    fn explosions_hit_hard_then_roll_away() {
+        let boom = explosion();
+        let tenth = sample_count(0.1);
+        assert!(loudness(&boom[..tenth]) > 20.0 * loudness(&boom[boom.len() - tenth..]));
     }
 
     #[test]

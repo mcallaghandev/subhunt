@@ -87,9 +87,13 @@ mod tests {
 
     #[test]
     fn notices_and_orders_round_trip() {
-        let notice = ServerMessage::Notice(Notice::Sunk { by: PlayerId(7) });
-        let decoded: ServerToClient = decode_line(&encode_line(&ServerToClient::from(&notice))).unwrap();
-        assert_eq!(ServerMessage::from(decoded), notice);
+        for notice in
+            [Notice::Sunk { by: PlayerId(7) }, Notice::Kill { victim: PlayerId(2), position: Vec2::new(10.5, -3.0) }]
+        {
+            let message = ServerMessage::Notice(notice);
+            let decoded: ServerToClient = decode_line(&encode_line(&ServerToClient::from(&message))).unwrap();
+            assert_eq!(ServerMessage::from(decoded), message);
+        }
 
         let orders = HelmOrders { throttle: -0.5, rudder: 1.0, fire_torpedo: true, sonar_ping: false };
         let decoded: ClientToServer = decode_line(&encode_line(&ClientToServer::from(&orders))).unwrap();

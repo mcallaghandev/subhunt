@@ -33,6 +33,8 @@ pub enum GameEvent {
     SubmarineSunk {
         victim: PlayerId,
         attacker: PlayerId,
+        /// Where the victim was when the torpedo hit.
+        position: Vec2,
     },
 }
 
@@ -317,13 +319,14 @@ impl GameWorld {
         {
             *score += 1;
         }
+        let wreck = self.submarines.get(&victim).map_or(Vec2::ZERO, |sub| sub.position);
         // Respawn straight away somewhere far from everyone else.
         let position = self.find_spawn_point(victim);
         let heading = self.rng.range(-PI, PI);
         if let Some(sub) = self.submarines.get_mut(&victim) {
             *sub = Submarine::new(position, heading);
         }
-        events.push(GameEvent::SubmarineSunk { victim, attacker });
+        events.push(GameEvent::SubmarineSunk { victim, attacker, position: wreck });
     }
 
     /// Tries a few random spots and picks the one furthest from other submarines.
@@ -418,15 +421,19 @@ mod tests {
         let mut world = two_subs(300.0);
         world.set_orders(A, HelmOrders { fire_torpedo: true, ..Default::default() });
 
-        let mut sunk = false;
+        let mut wreck = None;
         for _ in 0..100 {
             let events = world.step(DT);
-            if events.contains(&GameEvent::SubmarineSunk { victim: B, attacker: A }) {
-                sunk = true;
+            wreck = events.iter().find_map(|event| match *event {
+                GameEvent::SubmarineSunk { victim: B, attacker: A, position } => Some(position),
+                _ => None,
+            });
+            if wreck.is_some() {
                 break;
             }
         }
-        assert!(sunk, "torpedo should reach B within five seconds");
+        let wreck = wreck.expect("torpedo should reach B within five seconds");
+        assert!(wreck.distance(Vec2::new(150.0, 0.0)) < 1.0, "the hit is reported where B was");
         assert_eq!(world.score(A), 1);
         assert_eq!(world.score(B), 0);
     }
