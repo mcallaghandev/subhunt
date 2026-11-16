@@ -54,6 +54,8 @@ pub struct ClientSession {
     echoes: Vec<Echo>,
     notices: VecDeque<TimedNotice>,
     banner: Option<String>,
+    /// How many echoes have ever arrived, so a listener can spot new ones.
+    echo_count: u64,
 }
 
 impl Default for ClientSession {
@@ -73,6 +75,7 @@ impl ClientSession {
             echoes: Vec::new(),
             notices: VecDeque::new(),
             banner: None,
+            echo_count: 0,
         }
     }
 
@@ -90,6 +93,7 @@ impl ClientSession {
                 for contact in &picture.contacts {
                     if let Contact::Fix { position, kind } = *contact {
                         self.echoes.push(Echo { position, kind, age: 0.0 });
+                        self.echo_count += 1;
                     }
                 }
                 self.picture = Some(picture);
@@ -143,8 +147,15 @@ impl ClientSession {
         self.picture.as_ref()
     }
 
+    /// Echoes still on the screen, oldest first.
     pub fn echoes(&self) -> &[Echo] {
         &self.echoes
+    }
+
+    /// The total number of echoes ever received. If it has gone up by 3 since
+    /// you last looked, the last 3 entries of [`echoes`](Self::echoes) are new.
+    pub fn echo_count(&self) -> u64 {
+        self.echo_count
     }
 
     /// Newest first.
@@ -198,6 +209,7 @@ mod tests {
         // The next picture has no echo, but we still remember it.
         session.handle(ClientInbound::Message(ServerMessage::Picture(picture_with(vec![]))));
         assert_eq!(session.echoes().len(), 1);
+        assert_eq!(session.echo_count(), 1);
 
         session.advance(ECHO_LIFETIME / 2.0);
         assert!((session.echoes()[0].intensity() - 0.5).abs() < 1e-5);

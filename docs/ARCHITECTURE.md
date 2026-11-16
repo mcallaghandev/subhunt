@@ -200,6 +200,10 @@ Ideas roughly in order of difficulty. Each tells you which layer to touch, which
 9. **UDP networking.** Write a `net-renet` or `net-lightyear` crate implementing the same two ports, then change the composition roots to use it, just as the web version did with WebSockets.
 10. **Lobby and match rounds.** A new use case in the application layer that wraps `GameServer`.
 
+### Sound without sound files
+
+`client/src/sound/` builds every effect from scratch. `synth.rs` makes samples from sine waves, noise, envelopes, a low-pass filter and a resonator, then packs them into a WAV file in memory. `cues.rs` decides when to play them by comparing what the sonar knew a moment ago with what it knows now. For example, if the torpedo reload timer jumped up, we just fired. Both are plain Rust with tests. `audio_plugin.rs` is the small Bevy adapter that plays the results, and it changes the engine loop's volume and pitch as you speed up.
+
 ### Lessons from making it work on phones
 
 Two bugs only appeared on a real Android phone (Chrome, Qualcomm Adreno graphics), never in desktop browsers or the software renderer used for testing. Both are worth knowing about:

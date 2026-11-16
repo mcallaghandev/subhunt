@@ -7,6 +7,7 @@
 //!   session knows (output) and its levers and buttons, worked by mouse or
 //!   touch, are also helm controls (input)
 //! * `network` and `connect`: wire a transport to the `ClientSession` use case
+//! * `sound` and `audio_plugin`: synthesised sound effects (output)
 //!
 //! plus this file, the *composition root*, which plugs them together.
 //!
@@ -26,12 +27,14 @@
 //! Desktop: `cargo run -p subhunt-client -- 127.0.0.1:7777`
 //! Web: see `scripts/build-web.sh` and the README.
 
+mod audio_plugin;
 mod connect;
 mod helm;
 mod network;
 mod panel;
 mod panel_plugin;
 mod session;
+mod sound;
 
 use bevy::prelude::*;
 use subhunt_application::ClientSession;
@@ -62,7 +65,7 @@ fn main() -> AppExit {
         .insert_resource(Time::<Fixed>::from_hz(ORDERS_PER_SECOND))
         .insert_resource(session::Session(ClientSession::new()))
         .insert_non_send(network)
-        .add_plugins((helm::HelmPlugin, network::NetworkPlugin, panel_plugin::PanelPlugin))
+        .add_plugins((helm::HelmPlugin, network::NetworkPlugin, panel_plugin::PanelPlugin, audio_plugin::AudioPlugin))
         .run()
 }
 

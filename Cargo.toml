@@ -32,8 +32,10 @@ js-sys = "0.3"
 web-sys = { version = "0.3", features = ["WebSocket", "MessageEvent", "CloseEvent", "Event", "Window", "Location", "Url", "UrlSearchParams"] }
 # "2d" gives us a window, input and textures. "ui" is how the instrument panel
 # is put on screen (as a UI image; see panel_plugin.rs for why not a sprite).
-# We skip "3d" and "audio" to keep compile times and the web download down.
-bevy = { version = "0.20.1", default-features = false, features = ["2d", "ui"] }
+# "bevy_audio" + "wav" play the sound effects, which we synthesise as WAV data
+# in memory (see the client's sound module). We skip "3d" and the compressed
+# audio formats to keep compile times and the web download down.
+bevy = { version = "0.20.1", default-features = false, features = ["2d", "ui", "bevy_audio", "wav"] }
 
 # Bevy is slow when built without optimisations. These settings optimise all
 # dependencies fully while keeping our own code quick to recompile.

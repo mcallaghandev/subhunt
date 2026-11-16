@@ -72,7 +72,7 @@ impl Default for GameRules {
             torpedo_lifetime: 12.0,
             torpedo_cooldown: 4.0,
             torpedo_noise: 1.0,
-            torpedo_hit_radius: 25.0,
+            torpedo_hit_radius: 40.0,
             torpedo_launch_offset: 30.0,
             launch_noise: 1.0,
             launch_noise_duration: 1.0,

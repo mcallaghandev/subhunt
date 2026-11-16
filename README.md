@@ -8,7 +8,7 @@ You can't see the other players. All you have is a sonar scope:
 
 - **Passive sonar** (always on) tells you the **direction** of anything noisy, but not how far away it is. Going fast makes you louder *and* deafens your own sonar.
 - **Active sonar** (`SPACE`) pings: you get an exact **position** for everything in range, but the ping is loud. Everyone nearby now knows where you are, and anyone you pinged is told they've been spotted.
-- **Torpedoes** (`F`) run straight ahead. Line up a shot using bearings and pings, then sink them before they sink you.
+- **Torpedoes** (`F`) run straight ahead and explode within 40 metres of a submarine. Line up a shot using bearings and pings, then sink them before they sink you.
 
 ## Quick start
 
@@ -21,7 +21,7 @@ rustup update stable
 On Linux you also need a few system libraries ([Bevy's Linux dependency guide](https://github.com/bevyengine/bevy/blob/main/docs/linux_dependencies.md)). On Ubuntu or Debian:
 
 ```sh
-sudo apt install pkg-config libudev-dev libx11-dev libxkbcommon-dev libxkbcommon-x11-0 libwayland-dev
+sudo apt install pkg-config libudev-dev libasound2-dev libx11-dev libxkbcommon-dev libxkbcommon-x11-0 libwayland-dev
 ```
 
 Then, in three terminals:
@@ -128,6 +128,7 @@ The keyboard works too:
 | `X` | All stop |
 | `SPACE` | Active sonar ping |
 | `F` / `Enter` | Fire torpedo |
+| `M` | Mute or unmute sound |
 
 On a phone held upright, the panel rearranges itself into a tall layout.
 
@@ -149,6 +150,17 @@ On a phone held upright, the panel rearranges itself into a tall layout.
 **Warning lamps:** PINGED flashes when someone's ping finds you. HEARD lights while your sonar can hear something. HIT means your torpedo sank someone. SUNK means you were sunk.
 
 **Message display:** the game mode on the top line, and the latest event below it.
+
+### Sound
+
+Every sound is synthesised by the game itself, so there are no audio files:
+
+- **Ping:** your active sonar. Each echo comes back as a softer blip, delayed by how far away the target is (sound travels about 1,500 metres a second in water), so distant contacts answer later and quieter.
+- **Torpedo launch:** a thump, a rush of water and bubbles.
+- **Engine:** a low rumble that gets louder and higher as you speed up.
+- **Hull:** the occasional creak and groan.
+
+In a browser, sound starts after your first tap or key press, because browsers keep pages silent until then.
 
 ## Running the tests
 

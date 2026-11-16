@@ -32,6 +32,22 @@
   <pre id="problems" hidden></pre>
   <div id="loading"><p>Loading SubHunt…<br><small>Drag the levers and press the buttons with your mouse or finger.<br>On a computer, the keyboard works too.</small></p></div>
   <script>
+    // Browsers keep a page silent until the player taps, clicks or presses a
+    // key. The game starts its audio before that, so remember every audio
+    // context it creates and wake them all up on the first interaction.
+    (() => {
+      const Original = window.AudioContext || window.webkitAudioContext;
+      if (!Original) return;
+      const contexts = [];
+      window.AudioContext = class extends Original {
+        constructor(...args) { super(...args); contexts.push(this); }
+      };
+      const wake = () => contexts.forEach(context => context.state !== "running" && context.resume());
+      for (const event of ["pointerdown", "touchend", "keydown"]) {
+        window.addEventListener(event, wake, { capture: true });
+      }
+    })();
+
     // Show errors on the page so they can be read (and screenshotted) on a phone.
     function reportProblem(text) {
       const box = document.getElementById("problems");
