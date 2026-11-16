@@ -77,6 +77,34 @@ fn add_echoes(samples: &mut Vec<f32>, echoes: &[(f32, f32)]) {
     }
 }
 
+/// A band-pass filter: lets through a band of frequencies around `centre`
+/// and quietens everything else. This is the standard "biquad" design from
+/// Robert Bristow-Johnson's Audio EQ Cookbook.
+struct BandPass {
+    coefficients: [f32; 5],
+    history: [f32; 4],
+}
+
+impl BandPass {
+    fn new(centre: f32, q: f32) -> Self {
+        let w = TAU * centre / SAMPLE_RATE as f32;
+        let alpha = w.sin() / (2.0 * q);
+        let a0 = 1.0 + alpha;
+        Self {
+            coefficients: [alpha / a0, 0.0, -alpha / a0, -2.0 * w.cos() / a0, (1.0 - alpha) / a0],
+            history: [0.0; 4],
+        }
+    }
+
+    fn process(&mut self, input: f32) -> f32 {
+        let [b0, b1, b2, a1, a2] = self.coefficients;
+        let [x1, x2, y1, y2] = self.history;
+        let output = b0 * input + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+        self.history = [input, x1, output, y1];
+        output
+    }
+}
+
 /// The classic sonar "ping": a pure tone that starts sharply, fades slowly
 /// and rings on in the water.
 pub fn sonar_ping() -> Vec<f32> {
@@ -147,15 +175,29 @@ pub fn torpedo_launch() -> Vec<f32> {
     samples
 }
 
-/// One sample of the engine loop at time `t`. Separate so the tests can
-/// check that the loop joins up.
+/// The low part of the engine at time `t`. Separate so the tests can check
+/// that the loop joins up.
 fn engine_sample(t: f32, partials: &[(f32, f32, f32)]) -> f32 {
-    // A low rumble made of many quiet tones with random starting points...
+    // A deep rumble made of many quiet tones with random starting points...
     let rumble: f32 =
         partials.iter().map(|&(frequency, loudness, phase)| loudness * (TAU * frequency * t + phase).sin()).sum();
-    // ...pulsing with the propeller blades, plus a faint electrical hum.
-    let blades = 1.0 + 0.35 * (TAU * 8.0 * t).sin();
-    rumble * blades + 0.15 * (TAU * 50.0 * t).sin()
+    // ...pulsing with the propeller blades.
+    rumble * blade_pulse(t)
+}
+
+/// The propeller blades pass 8 times a second, making the sound throb.
+fn blade_pulse(t: f32) -> f32 {
+    1.0 + 0.35 * (TAU * 8.0 * t).sin()
+}
+
+/// The machinery hum: 50 Hz and its harmonics up to about 1.2 kHz.
+///
+/// Phone speakers can't play anything much below 300 Hz, so on a phone the
+/// deep rumble above is silent. Your ear still hears a low "hum" from its
+/// harmonics even when the 50 Hz itself is missing (the "missing
+/// fundamental" effect), so these carry the engine on small speakers.
+fn machinery_hum(t: f32) -> f32 {
+    (1..=24).map(|harmonic| (TAU * 50.0 * harmonic as f32 * t).sin() / (harmonic as f32).powf(0.9)).sum::<f32>()
 }
 
 /// The tones that make up the engine rumble: (frequency, loudness, phase).
@@ -166,13 +208,44 @@ fn engine_partials() -> Vec<(f32, f32, f32)> {
     (40..=240).map(|k| (k as f32 * 0.5, 1.0 / (k as f32).powf(0.8), random.range(0.0, TAU))).collect()
 }
 
-/// A seamless loop of engine rumble. The game changes its volume and speed to
-/// match how fast the submarine is going.
+/// The swish of the propeller through the water: noise in the band phone
+/// speakers can play, throbbing with the blades.
+///
+/// To loop without a click, the noise is filtered twice round the loop and
+/// only the second lap is kept, so the filter has "warmed up" on the very
+/// samples that will come before it when the loop repeats.
+fn propeller_swish(length: usize) -> Vec<f32> {
+    let mut random = Random::new(11);
+    let noise: Vec<f32> = (0..length).map(|_| random.noise()).collect();
+    let mut low_band = BandPass::new(450.0, 0.8);
+    let mut high_band = BandPass::new(1100.0, 1.2);
+    let mut swish = vec![0.0; length];
+    for lap in 0..2 {
+        for (i, sample) in noise.iter().enumerate() {
+            let filtered = low_band.process(*sample) + 0.5 * high_band.process(*sample);
+            if lap == 1 {
+                swish[i] = filtered * blade_pulse(time_of(i));
+            }
+        }
+    }
+    swish
+}
+
+/// A seamless loop of engine noise: deep rumble for headphones, hum and
+/// propeller swish for phone speakers. The game changes its volume and speed
+/// to match how fast the submarine is going.
 pub fn engine_loop() -> Vec<f32> {
     let partials = engine_partials();
-    let mut samples: Vec<f32> =
-        (0..sample_count(ENGINE_LOOP_SECONDS)).map(|i| engine_sample(time_of(i), &partials)).collect();
-    normalise(&mut samples, 0.7);
+    let length = sample_count(ENGINE_LOOP_SECONDS);
+    let mut rumble: Vec<f32> = (0..length).map(|i| engine_sample(time_of(i), &partials)).collect();
+    let mut hum: Vec<f32> = (0..length).map(|i| machinery_hum(time_of(i))).collect();
+    let mut swish = propeller_swish(length);
+    // Mix the three layers at chosen levels.
+    normalise(&mut rumble, 0.8);
+    normalise(&mut hum, 0.6);
+    normalise(&mut swish, 0.9);
+    let mut samples: Vec<f32> = (0..length).map(|i| rumble[i] + hum[i] + swish[i]).collect();
+    normalise(&mut samples, 0.8);
     samples
 }
 
@@ -182,9 +255,10 @@ pub fn engine_loop() -> Vec<f32> {
 pub fn hull_creak(seed: u64) -> Vec<f32> {
     let mut random = Random::new(seed);
     let length = sample_count(random.range(1.0, 1.8));
-    let low_start = random.range(150.0, 210.0);
-    let low_end = low_start * random.range(0.55, 0.75);
-    let high = random.range(380.0, 520.0);
+    // High enough for a phone speaker to play (they can't do much below 300 Hz).
+    let low_start = random.range(380.0, 480.0);
+    let low_end = low_start * random.range(0.6, 0.8);
+    let high = random.range(850.0, 1150.0);
 
     // The jolts: clicks at irregular gaps, fastest in the middle of the creak.
     let mut jolts = vec![0.0; length];
@@ -212,9 +286,9 @@ pub fn hull_creak(seed: u64) -> Vec<f32> {
             output
         };
         let envelope = (progress * 8.0).min(1.0) * ((1.0 - progress) * 4.0).min(1.0);
-        samples[i] = envelope * (ring(&mut low, pitch, jolts[i]) + 0.4 * ring(&mut high_ring, high, jolts[i]));
+        samples[i] = envelope * (ring(&mut low, pitch, jolts[i]) + 0.6 * ring(&mut high_ring, high, jolts[i]));
     }
-    normalise(&mut samples, 0.6);
+    normalise(&mut samples, 0.8);
     samples
 }
 
@@ -277,6 +351,33 @@ mod tests {
         let start = engine_sample(0.0, &partials);
         let end = engine_sample(ENGINE_LOOP_SECONDS, &partials);
         assert!((start - end).abs() < 0.01, "start {start} vs end {end}");
+    }
+
+    /// Phone speakers can't play much below 300 Hz. Ambient sounds made only
+    /// of low frequencies were silent on a phone, so check each sound has a
+    /// good share of its energy where a phone can play it.
+    #[test]
+    fn ambient_sounds_are_audible_on_phone_speakers() {
+        fn share_above_300_hz(samples: &[f32]) -> f32 {
+            // Two passes of a simple high-pass filter (a "leaky" difference).
+            let cut = (-TAU * 300.0 / SAMPLE_RATE as f32).exp();
+            let high_pass = |input: &[f32]| {
+                let (mut previous_in, mut previous_out) = (0.0, 0.0);
+                input
+                    .iter()
+                    .map(|&x| {
+                        let y = cut * (previous_out + x - previous_in);
+                        (previous_in, previous_out) = (x, y);
+                        y
+                    })
+                    .collect::<Vec<f32>>()
+            };
+            loudness(&high_pass(&high_pass(samples))) / loudness(samples)
+        }
+        for (name, sound) in [("engine", engine_loop()), ("creak", hull_creak(1)), ("creak", hull_creak(3))] {
+            let share = share_above_300_hz(&sound);
+            assert!(share > 0.2, "{name}: only {:.0}% of its energy is above 300 Hz", share * 100.0);
+        }
     }
 
     #[test]

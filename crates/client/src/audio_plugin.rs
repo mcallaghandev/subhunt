@@ -168,7 +168,7 @@ fn play_creaks(
     listening.next_creak = now + 8.0 + 14.0 * listening.random();
     if session.0.status() == ConnectionStatus::Playing && !listening.muted {
         let which = (listening.random() * sounds.creaks.len() as f32) as usize % sounds.creaks.len();
-        let loudness = 0.2 + 0.2 * listening.random();
+        let loudness = 0.35 + 0.25 * listening.random();
         play_once(&mut commands, &sounds.creaks[which], loudness);
     }
 }

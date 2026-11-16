@@ -48,7 +48,7 @@ pub fn echo_cue(me: Vec2, echo_position: Vec2, range: f32) -> Cue {
 /// speed from 0 (stopped) to 1 (flat out).
 pub fn engine_mix(speed_fraction: f32) -> (f32, f32) {
     let speed = speed_fraction.clamp(0.0, 1.0);
-    (0.05 + 0.4 * speed, 0.75 + 0.6 * speed)
+    (0.15 + 0.45 * speed, 0.75 + 0.5 * speed)
 }
 
 #[cfg(test)]
