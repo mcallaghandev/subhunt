@@ -144,7 +144,7 @@ Bevy is built on **ECS** (Entity Component System):
 - **Schedules** decide when systems run. `Startup` runs once. `Update` runs every frame. `FixedUpdate` runs at a fixed rate (we set 20 Hz for sending orders).
 - **Plugins** bundle systems and resources. Each client module exposes one (`HelmPlugin`, `NetworkPlugin` and so on), and `main.rs` adds them.
 
-We barely use Bevy for drawing. The instrument panel is a **software framebuffer**: `client/src/panel/canvas.rs` keeps the pixels in a plain `Vec<u8>` and draws lines, circles and text into it with classic algorithms (Bresenham lines, midpoint circles, a hand-made 3×5 pixel font). Every frame, `panel/draw.rs` repaints the panel from the session, and `panel_plugin.rs` hands the pixels to Bevy as a texture on a single sprite, scaled up with "nearest" sampling so each pixel stays a crisp square.
+We barely use Bevy for drawing. The instrument panel is a **software framebuffer**: `client/src/panel/canvas.rs` keeps the pixels in a plain `Vec<u8>` and draws lines, circles and text into it with classic algorithms (Bresenham lines, midpoint circles, a hand-made 3×5 pixel font). Every frame, `panel/draw.rs` repaints the panel from the session, and `panel_plugin.rs` hands the pixels to Bevy as a texture shown by a single UI image, scaled up with "nearest" sampling so each pixel stays a crisp square.
 
 That's how games were drawn in the 1980s, and it suits a learner well:
 
@@ -199,6 +199,15 @@ Ideas roughly in order of difficulty. Each tells you which layer to touch, which
 8. **Smoother movement.** Interpolate your own ship between server pictures (client-side prediction). *(Client and `ClientSession`.)*
 9. **UDP networking.** Write a `net-renet` or `net-lightyear` crate implementing the same two ports, then change the composition roots to use it, just as the web version did with WebSockets.
 10. **Lobby and match rounds.** A new use case in the application layer that wraps `GameServer`.
+
+### Lessons from making it work on phones
+
+Two bugs only appeared on a real Android phone (Chrome, Qualcomm Adreno graphics), never in desktop browsers or the software renderer used for testing. Both are worth knowing about:
+
+- **Don't give a texture that changes every frame its own sampler.** Bevy creates a new GPU sampler whenever such an image changes. Phone drivers allow only a few thousand, so Chrome shut the graphics down ("WebGL context lost"). The panel uses the app-wide default sampler instead, set to "nearest" with `ImagePlugin::default_nearest()`.
+- **Bevy's sprite renderer drew the panel as one flat colour on that phone**, while the UI renderer worked. That's why the panel is a UI image.
+
+The `?debug` page option shows Bevy's log on screen, which is how both were found. When something works on desktop but not on a phone, start there.
 
 ## 7. Known limitations (deliberate, to keep things simple)
 

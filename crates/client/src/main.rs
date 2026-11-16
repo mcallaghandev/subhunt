@@ -17,7 +17,7 @@
 //!
 //! Bevy uses **ECS** (Entity Component System):
 //! * **Resources** are global singletons (`Session`, `Helm`, `Network`).
-//! * **Components** are data attached to entities (the panel's sprite).
+//! * **Components** are data attached to entities (the panel's UI image).
 //! * **Systems** are ordinary functions. Their *parameters* say what they need
 //!   (`Res<Session>`, `ResMut<Helm>`, `Query<&mut Text>`), and Bevy calls them
 //!   every frame with those things filled in.

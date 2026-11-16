@@ -5,8 +5,12 @@
 //! 2. turn mouse and touch positions into panel pixels and read the controls,
 //! 3. redraw the panel into its pixel buffer and hand that to the GPU as a texture.
 //!
-//! The texture is shown on one sprite and scaled up with "nearest" sampling,
-//! which keeps every pixel a crisp square instead of blurring it.
+//! The texture is shown as a single UI image, scaled up with "nearest"
+//! sampling, which keeps every pixel a crisp square instead of blurring it.
+//!
+//! Why a UI image and not a sprite? Bevy's sprite renderer drew the panel as a
+//! single flat colour on an Android phone's Adreno graphics chip, while Bevy's
+//! UI renderer (which the earlier, text-based version used) works there.
 
 use bevy::asset::RenderAssetUsages;
 use bevy::image::ImageSampler;
@@ -33,13 +37,14 @@ struct Panel {
     input: PanelInput,
 }
 
+/// Marks the UI node that shows the panel.
 #[derive(Component)]
-struct PanelSprite;
+struct PanelImage;
 
 /// Some phones' graphics drivers crash (losing the whole WebGL context) when
 /// a texture's rows aren't a multiple of 256 bytes. At 4 bytes per pixel
 /// that's 64 pixels, so the texture is padded out to a multiple of 64 wide
-/// and the sprite only shows the panel part of it.
+/// and the UI image only shows the panel part of it.
 const ROW_ALIGNMENT_PIXELS: i32 = 64;
 /// Redrawing faster than this gains nothing and costs battery.
 const REDRAWS_PER_SECOND: f32 = 30.0;
@@ -88,7 +93,20 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn(Camera2d);
     let layout = Layout::landscape();
     let image = images.add(blank_image(&layout));
-    commands.spawn((Sprite { image: image.clone(), rect: Some(visible_part(&layout)), ..default() }, PanelSprite));
+    // A full-window box that centres the panel, with the panel image inside it.
+    commands
+        .spawn(Node {
+            width: percent(100),
+            height: percent(100),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        })
+        .with_child((
+            ImageNode { image: image.clone(), rect: Some(visible_part(&layout)), ..default() },
+            Node { width: px(layout.width), height: px(layout.height), ..default() },
+            PanelImage,
+        ));
     commands.insert_resource(Panel {
         canvas: Canvas::new(layout.width, layout.height),
         layout,
@@ -103,9 +121,9 @@ fn fit_to_window(
     window: Query<&Window, With<PrimaryWindow>>,
     mut panel: ResMut<Panel>,
     mut images: ResMut<Assets<Image>>,
-    mut sprite: Query<&mut Sprite, With<PanelSprite>>,
+    mut shown: Query<(&mut ImageNode, &mut Node), With<PanelImage>>,
 ) {
-    let (Ok(window), Ok(mut sprite)) = (window.single(), sprite.single_mut()) else { return };
+    let (Ok(window), Ok((mut image_node, mut node))) = (window.single(), shown.single_mut()) else { return };
     let window_size = Vec2::new(window.width(), window.height());
     if window_size.min_element() < 1.0 {
         return; // minimised
@@ -116,8 +134,8 @@ fn fit_to_window(
     if layout.orientation != panel.layout.orientation {
         panel.canvas = Canvas::new(layout.width, layout.height);
         panel.image = images.add(blank_image(&layout));
-        sprite.image = panel.image.clone();
-        sprite.rect = Some(visible_part(&layout));
+        image_node.image = panel.image.clone();
+        image_node.rect = Some(visible_part(&layout));
         panel.layout = layout;
     }
 
@@ -126,7 +144,13 @@ fn fit_to_window(
     let panel_size = Vec2::new(panel.layout.width as f32, panel.layout.height as f32);
     let fit = (window_size / panel_size).min_element();
     let scale = if fit >= 3.0 { fit.floor() } else { fit };
-    sprite.custom_size = Some(panel_size * scale);
+    let shown_size = panel_size * scale;
+    // Only touch the layout when the size really changes, so Bevy doesn't
+    // redo the UI layout every frame.
+    if node.width != px(shown_size.x) || node.height != px(shown_size.y) {
+        node.width = px(shown_size.x);
+        node.height = px(shown_size.y);
+    }
     panel.scale = scale;
     panel.offset = (window_size - panel_size * scale) / 2.0;
 }
